@@ -34,5 +34,7 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-
+    'external_auth' => [
+        'base_url' => env('EXTERNAL_AUTH_BASE_URL', 'https://www.recruitware.uk'),
+    ],
 ];

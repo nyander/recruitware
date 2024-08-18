@@ -21,7 +21,7 @@
     },
     "dependencies": {
         "chart.js": "^4.4.3",
-        "lucide-react": "^0.417.0",
+        "lucide-react": "^0.428.0",
         "react-chartjs-2": "^5.2.0",
         "react-table": "^7.8.0"
     }
