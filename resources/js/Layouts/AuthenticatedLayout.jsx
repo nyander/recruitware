@@ -171,7 +171,7 @@ export default function Authenticated({ user, header, children }) {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col min-h-screen lg:ml-64">
+            <div className="flex-1 flex flex-col min-h-screen">
                 {/* Top bar for mobile */}
                 <div className="bg-white shadow lg:hidden">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

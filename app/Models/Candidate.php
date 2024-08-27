@@ -21,10 +21,14 @@ class Candidate extends Model
         'phone',
         'ref',
         'assessed_pack',
+        'status',
     ];
 
     protected $casts = [
         'age' => 'integer',
         'assessed_pack' => 'boolean',
+        'avail_window' => 'date', 
     ];
+
+    const STATUSES = ['leaver', 'archived', 'pending', 'audit', 'new', 'live'];
 }

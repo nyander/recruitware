@@ -17,13 +17,14 @@ return new class extends Migration
             $table->string('last_name');
             $table->string('first_name');
             $table->integer('age')->nullable();
-            $table->string('avail_window')->nullable();
+            $table->date('avail_window')->nullable();
             $table->string('shift_pattern')->nullable();
             $table->string('classification')->nullable();
             $table->string('email')->unique();
             $table->string('phone')->nullable();
             $table->string('ref')->unique();
             $table->boolean('assessed_pack')->default(false);
+            $table->enum('status', ['leaver', 'archived', 'pending', 'audit', 'new', 'live'])->default('new');
             $table->timestamps();
         });
     }

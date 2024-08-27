@@ -8,7 +8,8 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use App\Services\ExternalAuthService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
-
+use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\Redirect;
 
 class ExternalGuard implements Guard
 {
@@ -42,71 +43,72 @@ class ExternalGuard implements Guard
 
         // Check if we have user data in the session
         if (Session::has('userData')) {
-            $userData = Session::get('userData');
-            
-            // Create a user object from the session data
-            $this->user = new class($userData) implements Authenticatable {
-                protected $userData;
-
-                public function __construct($userData)
-                {
-                    $this->userData = $userData;
-                }
-
-                public function getAuthIdentifierName()
-                {
-                    return 'UserName';
-                }
-
-                public function getAuthIdentifier()
-                {
-                    return $this->userData['UserName'] ?? null;
-                }
-
-                public function getAuthPassword()
-                {
-                    return ''; // External auth, so we don't store passwords
-                }
-
-                public function getRememberToken()
-                {
-                    return null; // Implement if you need "remember me" functionality
-                }
-
-                public function setRememberToken($value)
-                {
-                    // Implement if you need "remember me" functionality
-                }
-
-                public function getRememberTokenName()
-                {
-                    return null; // Implement if you need "remember me" functionality
-                }
-
-                // Add any other methods you need to access user data
-                public function getAttribute($key)
-                {
-                    return $this->userData[$key] ?? null;
-                }
-            };
-
-            return $this->user;
+            return $this->createUserFromSession(Session::get('userData'));
         }
 
-        // If we don't have user data in the session, we might need to fetch it from the external service
-        // This depends on how your external authentication system works
-        // For example, you might have a token stored in the session that you can use to fetch user data
-
-        if (Session::has('authToken')) {
-            $token = Session::get('authToken');
-            $userData = $this->externalAuthService->getUserDataByToken($token);
-            if ($userData) {
-                Session::put('userData', $userData);
-                return $this->user();  // Recursive call to create user from session
-            }
+        // Check if we have the authentication cookie
+        $authId = Cookie::get('RW_AuthID');
+        if ($authId && Session::get('authID') === $authId) {
+            // We have a valid auth cookie, but no user data in session
+            // This might happen if the session expired but the cookie is still valid
+            // You might want to implement a re-authentication process here in the future
+            return null;
         }
 
         return null;
+    }
+
+    protected function createUserFromSession($userData)
+    {
+        $this->user = new class($userData) implements Authenticatable {
+            protected $userData;
+
+            public function __construct($userData)
+            {
+                $this->userData = $userData;
+            }
+
+            public function getAuthIdentifierName()
+            {
+                return 'UserName';
+            }
+
+            public function getAuthIdentifier()
+            {
+                return $this->userData['UserName'] ?? null;
+            }
+
+            public function getAuthPassword()
+            {
+                return ''; // External auth, so we don't store passwords
+            }
+
+            public function getAuthPasswordName()
+            {
+                return 'password'; // This is the new method we need to implement
+            }
+
+            public function getRememberToken()
+            {
+                return null;
+            }
+
+            public function setRememberToken($value)
+            {
+            }
+
+            public function getRememberTokenName()
+            {
+                return null;
+            }
+
+            public function getAttribute($key)
+            {
+                return $this->userData[$key] ?? null;
+            }
+        };
+
+        return $this->user;
     }
 
     public function id()
@@ -118,7 +120,12 @@ class ExternalGuard implements Guard
 
     public function validate(array $credentials = [])
     {
-        return $this->externalAuthService->login($credentials['username'], $credentials['password']) !== null;
+        $userData = $this->externalAuthService->login($credentials['username'], $credentials['password']);
+        if ($userData) {
+            $this->setUser($this->createUserFromSession($userData));
+            return true;
+        }
+        return false;
     }
 
     public function setUser(Authenticatable $user)
@@ -127,9 +134,17 @@ class ExternalGuard implements Guard
         return $this;
     }
 
-    // Add this new method
     public function hasUser()
     {
         return $this->user() !== null;
+    }
+
+    public function attempt(array $credentials = [])
+    {
+        if ($this->validate($credentials)) {
+            // Authentication successful, redirect to candidates/live
+            return Redirect::to(route('candidates.live'));
+        }
+        return false;
     }
 }

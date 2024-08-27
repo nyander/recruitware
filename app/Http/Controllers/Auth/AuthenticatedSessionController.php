@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Services\ExternalAuthService;
+use Illuminate\Foundation\Support\Providers\RouteServiceProvider;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -35,25 +36,28 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
-        Log::info('AuthenticatedSessionController: Login attempt', ['username' => $request->input('username')]);
+        // Log::info('AuthenticatedSessionController: Login attempt', ['username' => $request->input('username')]);
 
-        $user = $this->externalAuthService->login($request->input('username'), $request->input('password'));
+        // $result = $this->externalAuthService->login($request->input('username'), $request->input('password'));
 
-        if ($user) {
-            // Create a user object that Laravel's Auth can use
-            $laravelUser = new \App\Models\User([
-                'name' => $user['Name'] ?? $request->input('username'),
-                'email' => $user['Email'] ?? '',
-                // Add other fields as necessary
-            ]);
+        // if ($result) {
+        //     $request->session()->regenerate();
+        //     return redirect()->intended(route('dashboard'));
+        // }
 
-            Auth::login($laravelUser);
+        // Log::warning('AuthenticatedSessionController: Authentication failed', ['username' => $request->input('username')]);
+        // throw ValidationException::withMessages([
+        //     'username' => __('auth.failed'),
+        // ]);
+
+        $credentials = $request->only('username', 'password');
+
+        if (Auth::guard('external')->attempt($credentials)) {
             $request->session()->regenerate();
-            return redirect()->intended(route('dashboard'));
+            return redirect()->intended(route('candidates.live'));
         }
 
-        Log::warning('AuthenticatedSessionController: Authentication failed', ['username' => $request->input('username')]);
-        throw ValidationException::withMessages([
+        return back()->withErrors([
             'username' => __('auth.failed'),
         ]);
     }

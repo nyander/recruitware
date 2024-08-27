@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             TableSubmissionSeeder::class,
             ClientSeeder::class,
             BookingSeeder::class,
+            CandidateSeeder::class,
         ]);
     }
 }

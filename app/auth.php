@@ -14,7 +14,7 @@ return [
     */
 
     'defaults' => [
-        'guard' =>'external',
+        'guard' =>'web',
         'passwords' =>'users',
     ],
 
@@ -47,10 +47,10 @@ return [
             'hash' => false,
         ],
 
-        'external' => [
-            'driver' => 'external',
-            'provider' => 'external-users',
-        ],
+        // 'external' => [
+        //     'driver' => 'external',
+        //     'provider' => 'external-users',
+        // ],
     ],
 
     /*
@@ -76,9 +76,9 @@ return [
             'model' => App\Models\User::class,
         ],
 
-        'external-users' => [
-            'driver' => 'external',
-        ],
+        // 'external-users' => [
+        //     'driver' => 'external',
+        // ],
 
         // 'users' => [
         //     'driver' => 'database',

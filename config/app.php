@@ -123,4 +123,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'use_dummy_user' => env('USE_DUMMY_USER', false),
+
 ];

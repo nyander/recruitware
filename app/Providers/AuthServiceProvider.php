@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Services\CandidateService;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Auth;
 use App\Guards\ExternalGuard;
+use App\Http\Controllers\CandidateController;
 use App\Providers\ExternalUserProvider;
 use App\Services\ExternalAuthService;
 
@@ -47,7 +49,18 @@ class AuthServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->singleton(ExternalAuthService::class, function ($app) {
-            return new ExternalAuthService();
+            return new ExternalAuthService(
+                $app->make(CandidateService::class),
+                $app->make(CandidateController::class)
+            );
+        });
+
+        $this->app->singleton(CandidateService::class, function ($app) {
+            return new CandidateService();
+        });
+
+        $this->app->singleton(CandidateController::class, function ($app) {
+            return new CandidateController($app->make(CandidateService::class));
         });
     }
 }

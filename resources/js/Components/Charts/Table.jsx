@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useTable, useSortBy, usePagination } from 'react-table';
+import { ChevronDownIcon } from '@heroicons/react/20/solid';
 
 const Table = ({ columns: initialColumns, data }) => {
   const [selectedColumns, setSelectedColumns] = useState(
     initialColumns.map(column => column.accessor)
   );
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const toggleColumn = (accessor) => {
     setSelectedColumns(prev => 
@@ -46,19 +48,36 @@ const Table = ({ columns: initialColumns, data }) => {
 
   return (
     <div>
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold mb-2">Select Columns:</h2>
-        {initialColumns.map(column => (
-          <label key={column.accessor} className="inline-flex items-center mr-4">
-            <input
-              type="checkbox"
-              checked={selectedColumns.includes(column.accessor)}
-              onChange={() => toggleColumn(column.accessor)}
-              className="form-checkbox h-5 w-5 text-blue-600"
-            />
-            <span className="ml-2">{column.Header}</span>
-          </label>
-        ))}
+      <div className="mb-4 relative">
+        <button 
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500"
+        >
+          Columns
+          <ChevronDownIcon className="-mr-1 ml-2 h-5 w-5" aria-hidden="true" />
+        </button>
+
+        {isDropdownOpen && (
+          <div className="origin-top-left absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+            <div className="py-1">
+              {initialColumns.map((column) => (
+                <div
+                  key={column.accessor}
+                  className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
+                  onClick={() => toggleColumn(column.accessor)}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedColumns.includes(column.accessor)}
+                    onChange={() => {}}
+                    className="mr-2"
+                  />
+                  {column.Header}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mb-4">
@@ -83,49 +102,36 @@ const Table = ({ columns: initialColumns, data }) => {
 
       <table {...getTableProps()} className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
-          {headerGroups.map(headerGroup => {
-            const { key: rowKey, ...restHeaderGroupProps } = headerGroup.getHeaderGroupProps();
-            return (
-              <tr key={rowKey} {...restHeaderGroupProps}>
-                {headerGroup.headers.map(column => {
-                  const { key: cellKey, ...restColumn } = column.getHeaderProps(column.getSortByToggleProps());
-                  return (
-                    <th
-                      key={cellKey}
-                      {...restColumn}
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      {column.render('Header')}
-                      <span>
-                        {column.isSorted
-                          ? column.isSortedDesc
-                            ? ' 🔽'
-                            : ' 🔼'
-                          : ''}
-                      </span>
-                    </th>
-                  );
-                })}
-              </tr>
-            );
-          })}
+          {headerGroups.map(headerGroup => (
+            <tr {...headerGroup.getHeaderGroupProps()}>
+              {headerGroup.headers.map(column => (
+                <th
+                  {...column.getHeaderProps(column.getSortByToggleProps())}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  {column.render('Header')}
+                  <span>
+                    {column.isSorted
+                      ? column.isSortedDesc
+                        ? ' 🔽'
+                        : ' 🔼'
+                      : ''}
+                  </span>
+                </th>
+              ))}
+            </tr>
+          ))}
         </thead>
         <tbody {...getTableBodyProps()} className="bg-white divide-y divide-gray-200">
-          {page.map(row => {
-            prepareRow(row);
-            const { key: rowKey, ...restRowProps } = row.getRowProps();
+          {page.map((row, i) => {
+            prepareRow(row)
             return (
-              <tr key={rowKey} {...restRowProps}>
+              <tr {...row.getRowProps()}>
                 {row.cells.map(cell => {
-                  const { key: cellKey, ...restCellProps } = cell.getCellProps();
-                  return (
-                    <td key={cellKey} {...restCellProps} className="px-6 py-4 whitespace-nowrap">
-                      {cell.render('Cell')}
-                    </td>
-                  );
+                  return <td {...cell.getCellProps()} className="px-6 py-4 whitespace-nowrap">{cell.render('Cell')}</td>
                 })}
               </tr>
-            );
+            )
           })}
         </tbody>
       </table>
