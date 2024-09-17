@@ -1,25 +1,55 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useTable, useSortBy, usePagination } from 'react-table';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
+import { useEffect } from 'react';
+import PropTypes from 'prop-types';
+import CandidateFormModal from '@/Pages/Components/CandidateFormModal';
 
-const Table = ({ columns: initialColumns, data }) => {
-  const [selectedColumns, setSelectedColumns] = useState(
-    initialColumns.map(column => column.accessor)
-  );
+const Table = ({ columns: initialColumns, data: rawData, onRowClick }) => {
+
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [selectedColumns, setSelectedColumns] = useState(initialColumns);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const toggleColumn = (accessor) => {
+
+  useEffect(() => {
+    console.log("Table component mounted or updated");
+    console.log("onRowClick type:", typeof onRowClick);
+}, [onRowClick]);
+
+  const data = useMemo(() => {
+    if (typeof rawData !== 'object' || rawData === null) {
+      console.error('Data prop must be an object');
+      return [];
+    }
+    return Object.values(rawData);
+  }, [rawData]);
+
+  const toggleColumn = useCallback((columnName) => {
     setSelectedColumns(prev => 
-      prev.includes(accessor)
-        ? prev.filter(col => col !== accessor)
-        : [...prev, accessor]
+      prev.includes(columnName)
+        ? prev.filter(col => col !== columnName)
+        : [...prev, columnName]
     );
-  };
+  }, []);
 
   const columns = useMemo(
-    () => initialColumns.filter(column => selectedColumns.includes(column.accessor)),
-    [initialColumns, selectedColumns]
+    () => selectedColumns.map(columnName => ({
+      Header: columnName,
+      accessor: columnName,
+      id: columnName,
+    })),
+    [selectedColumns]
   );
+
+  const handleRowClick = useCallback((row) => {
+    console.log("Row clicked in Table component:", row.original);
+    setSelectedCandidate(row.original);
+    setIsModalOpen(true);
+  }, []);
+  
 
   const {
     getTableProps,
@@ -47,7 +77,7 @@ const Table = ({ columns: initialColumns, data }) => {
   );
 
   return (
-    <div>
+    <div className="flex flex-col h-full">
       <div className="mb-4 relative">
         <button 
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -60,19 +90,19 @@ const Table = ({ columns: initialColumns, data }) => {
         {isDropdownOpen && (
           <div className="origin-top-left absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
             <div className="py-1">
-              {initialColumns.map((column) => (
+              {initialColumns.map((columnName) => (
                 <div
-                  key={column.accessor}
+                  key={columnName}
                   className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
-                  onClick={() => toggleColumn(column.accessor)}
+                  onClick={() => toggleColumn(columnName)}
                 >
                   <input
                     type="checkbox"
-                    checked={selectedColumns.includes(column.accessor)}
+                    checked={selectedColumns.includes(columnName)}
                     onChange={() => {}}
                     className="mr-2"
                   />
-                  {column.Header}
+                  {columnName}
                 </div>
               ))}
             </div>
@@ -100,41 +130,59 @@ const Table = ({ columns: initialColumns, data }) => {
         </label>
       </div>
 
-      <table {...getTableProps()} className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          {headerGroups.map(headerGroup => (
-            <tr {...headerGroup.getHeaderGroupProps()}>
-              {headerGroup.headers.map(column => (
-                <th
-                  {...column.getHeaderProps(column.getSortByToggleProps())}
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  {column.render('Header')}
-                  <span>
-                    {column.isSorted
-                      ? column.isSortedDesc
-                        ? ' 🔽'
-                        : ' 🔼'
-                      : ''}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody {...getTableBodyProps()} className="bg-white divide-y divide-gray-200">
-          {page.map((row, i) => {
-            prepareRow(row)
-            return (
-              <tr {...row.getRowProps()}>
-                {row.cells.map(cell => {
-                  return <td {...cell.getCellProps()} className="px-6 py-4 whitespace-nowrap">{cell.render('Cell')}</td>
+      <div className="flex-grow overflow-auto">
+        <div className="inline-block min-w-full align-middle">
+          <div className="overflow-hidden border-b border-gray-200 shadow sm:rounded-lg">
+            <table {...getTableProps()} className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                {headerGroups.map((headerGroup, groupIndex) => (
+                  <tr {...headerGroup.getHeaderGroupProps()} key={`header-group-${groupIndex}`}>
+                    {headerGroup.headers.map((column, columnIndex) => (
+                      <th
+                        {...column.getHeaderProps(column.getSortByToggleProps())}
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10"
+                        key={`header-${groupIndex}-${columnIndex}`}
+                      >
+                        {column.render('Header')}
+                        <span>
+                          {column.isSorted
+                            ? column.isSortedDesc
+                              ? ' 🔽'
+                              : ' 🔼'
+                            : ''}
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody {...getTableBodyProps()} className="bg-white divide-y divide-gray-200">
+                {page.map((row, rowIndex) => {
+                  prepareRow(row);
+                  return (
+                    <tr 
+                      {...row.getRowProps()} 
+                      onClick={() => handleRowClick(row)}
+                      className="cursor-pointer hover:bg-gray-50"
+                      key={`row-${rowIndex}`}
+                    >
+                      {row.cells.map((cell, cellIndex) => (
+                        <td 
+                          {...cell.getCellProps()} 
+                          className="px-6 py-4 whitespace-nowrap"
+                          key={`cell-${rowIndex}-${cellIndex}`}
+                        >
+                          {cell.render('Cell')}
+                        </td>
+                      ))}
+                    </tr>
+                  );
                 })}
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
       <div className="mt-4 flex items-center justify-between">
         <div>
@@ -158,8 +206,20 @@ const Table = ({ columns: initialColumns, data }) => {
           </strong>{' '}
         </span>
       </div>
+
+      <CandidateFormModal
+      isOpen={isModalOpen}
+      onClose={() => setIsModalOpen(false)}
+      candidate={selectedCandidate}
+    />
     </div>
   );
+};
+
+Table.propTypes = {
+  columns: PropTypes.array.isRequired,
+  data: PropTypes.array.isRequired,
+  onRowClick: PropTypes.func
 };
 
 export default Table;

@@ -46,6 +46,25 @@ class ExternalGuard implements Guard
             return $this->createUserFromSession(Session::get('userData'));
         }
 
+        dd("hello world");
+
+        //if session has timed out:
+        // if (Session::has('userData') && Session::has('last_activity')) {
+        //     $lastActivity = Session::get('last_activity');
+        //     $sessionTimeout = config('session.lifetime') * 60; // Convert minutes to seconds
+    
+        //     if (time() - $lastActivity > $sessionTimeout) {
+        //         // Session has expired
+        //         Session::flush();
+        //         return null;
+        //     }
+    
+        //     // Update last activity time
+        //     Session::put('last_activity', time());
+    
+        //     return $this->createUserFromSession(Session::get('userData'));
+        // }
+
         // Check if we have the authentication cookie
         $authId = Cookie::get('RW_AuthID');
         if ($authId && Session::get('authID') === $authId) {
@@ -122,7 +141,8 @@ class ExternalGuard implements Guard
     {
         $userData = $this->externalAuthService->login($credentials['username'], $credentials['password']);
         if ($userData) {
-            $this->setUser($this->createUserFromSession($userData));
+            $user = $this->createUserFromSession($userData);
+            $this->setUser($user);
             return true;
         }
         return false;
@@ -141,6 +161,7 @@ class ExternalGuard implements Guard
 
     public function attempt(array $credentials = [])
     {
+        dd("hello world");
         if ($this->validate($credentials)) {
             // Authentication successful, redirect to candidates/live
             return Redirect::to(route('candidates.live'));

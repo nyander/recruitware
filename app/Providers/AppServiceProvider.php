@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\CandidateService;
+use App\Services\ExternalAuthService;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -14,6 +15,10 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(CandidateService::class, function ($app) {
             return new CandidateService();
+        });
+
+        $this->app->bind(ExternalAuthService::class, function ($app) {
+            return new ExternalAuthService();
         });
     }
 

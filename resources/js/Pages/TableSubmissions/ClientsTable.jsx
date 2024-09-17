@@ -2,6 +2,15 @@ import React, { useMemo } from 'react';
 import Table from '../../Components/Charts/Table';
 
 const ClientTable = ({ clients }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+
+  const handleRowClick = useCallback((candidate) => {
+    console.log("Row clicked in Candidates component:", candidate);
+    setSelectedCandidate(candidate);
+    setIsModalOpen(true);
+}, []);
+
   const columns = useMemo(
     () => [
       {
@@ -25,7 +34,11 @@ const ClientTable = ({ clients }) => {
     []
   );
 
-  return <Table columns={columns} data={clients} />;
+  return <Table 
+  columns={columns} 
+  data={candidates}
+  onRowClick={handleRowClick}
+/>;
 };
 
 export default ClientTable;

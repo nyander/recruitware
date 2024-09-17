@@ -24,17 +24,20 @@ class ExternalAuthService
 
     protected $candidateService;
 
-    protected $candidateController;
 
-    public function __construct(CandidateService $candidateService, CandidateController $candidateController)
+    protected $vSetts;
+
+    protected $vData;
+
+    public function __construct(CandidateService $candidateService)
     {
         $this->candidateService = $candidateService;
-        $this->candidateController = $candidateController;
         $this->baseUrl = config('services.external_auth.base_url', 'https://www.recruitware.uk');
+
         $this->cookieJar = new CookieJar();
         $this->client = new Client([
             'base_uri' => $this->baseUrl,
-            'timeout'  => 30.0,
+            // 'timeout'  => 30.0,
             'cookies' => $this->cookieJar,
             'verify' => false, // Only for testing, enable in production
         ]);
@@ -78,6 +81,7 @@ class ExternalAuthService
             if($this->sessionId) {
                 return $this->postLogin($username, $password);
             }
+            
 
             Log::error('ExternalAuthService: Login failed', ['username' => $username]);
             return null;
@@ -114,10 +118,12 @@ class ExternalAuthService
 
             // Use the initial body for parsing user data
             $body = $initialBody ?? $response->getBody()->getContents();
+            
             Log::info('ExternalAuthService: Login response received', ['status' => $response->getStatusCode(), 'body' => $body]);
             
             $this->userData = $this->parseUserData($body);
 
+            
             if (empty($this->userData)) {
                 Log::error('ExternalAuthService: Failed to parse user data', ['username' => $username]);
                 return null;
@@ -126,15 +132,21 @@ class ExternalAuthService
             
     
             // Store user data in session
-            Session::put('userData', $this->userData);
+            // Session::put('userData', $this->userData);
             
             // Next phase check the last page which user was at.
 
-            //if not last page, then redirect to the dashboard
-
+        
 
             if ($this->sessionId && $this->userData) {
                 $this->setSessionAndCookies($username);
+                // Manually add the session cookie to the CookieJar
+                $this->cookieJar->setCookie(new \GuzzleHttp\Cookie\SetCookie([
+                    'Name' => 'DomAuthSessId',
+                    'Value' => $this->sessionId,
+                    'Domain' => '.recruitware.uk',
+                    'Path' => '/',
+                ]));
                 return $this->userData;
             }
 
@@ -188,6 +200,7 @@ class ExternalAuthService
         Session::put('userName', $username);
         Session::put('userData', $this->userData);
         Session::put('fldr', $this->userData['ApplicationFolder'] ?? 'demo');
+        
 
         $d = strtotime("today");
         if (request()->has('dt')) {
@@ -198,145 +211,108 @@ class ExternalAuthService
         $end_week = strtotime("next saturday", $d);
         $end = date("d/m/Y", $end_week);
         Session::put('weekending', $end);
+        Session::put('cookieJar', serialize($this->cookieJar));
+
     }
 
     public function getUserSettings($Ty)
     {
-
         
-        $url = $this->baseUrl .'//'. $this->userData['ApplicationFolder'] . '/profiles.nsf/ag.getprsetts?openagent&' . $this->generateRandomString() . '|' . $this->userData['UserName'] . '|' . $Ty;
+        $applicationFolder = $this->userData['ApplicationFolder'] ?? Session::get('userData')['ApplicationFolder'];
+        $userName = $this->userData['UserName'] ?? Session::get('userData')['UserName'];
+
+        $url = $this->baseUrl .'//'.$applicationFolder . '/profiles.nsf/ag.getprsetts?openagent&' . $this->generateRandomString() .  '|' . $userName . '|' . $Ty;
         $args = [
             'url' => $url,
             'data-type' => 'Settings',
             'return-type' => 'Fields',
         ];
 
+
         $this->getDataUrl($args);
     }
 
     public function getDataUrl($args)
     {
-
-        $ck = $this->sessionId;
-        $url = preg_replace('/\[FLDR\]/', $this->userData['ApplicationFolder'], $args['url']);
-        $url = preg_replace('/\[RND\]/', $this->generateRandomString(), $url);
+        
+        $sessionId = $this->sessionId ?? session('authID');
+        $applicationFolder = $this->userData['ApplicationFolder'] ?? Session::get('userData')['ApplicationFolder'];
+        $ck = "DomAuthSessId=".$sessionId;
         $url = $args['url'];
+        $url = preg_replace('/\[FLDR\]/', $applicationFolder, $args['url']);
+        $url = preg_replace('/\[RND\]/', $this->generateRandomString(), $url);
+        $getValue = isset($args['is-post']) ? 'POST' : 'GET';
         $data = isset($args['data']) ? $args['data'] : '';
+
+        
+        // dd(session('cookieJar'));
+        
+        
         // $data = preg_replace('/\[WKEND\]/', Session::get('weekending'), $data); -> weekend is usually sunday of the week
         // $data = preg_replace('/\[NAVDATE\]/', Session::get('navdate'), $data);
-
-        $response = $this->client->request('GET', $url, [
+        $response = $this->client->request( $getValue,$url, [
             'headers' => [
                 'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/32.0.1700.107 Chrome/32.0.1700.107 Safari/537.36',
                 'Cookie' => $ck,
-            ],
+            ], 'body' =>  $data,
+            
         ]);
+    
+        Log::info('Cookies sent with request:', ['cookies' => Session::get('cookieJar')]);
         $resp = $response->getBody()->getContents();
+
+
+
+
+
+        $resp1 = str_replace("\n", '',$resp);
+        $resp2 = str_replace("~END~~END~", '~END~',$resp1);
+		$arrel = explode('~END~',$resp2);
         
-        $resp = str_replace(["
-        ", "
-        "], '', $resp);
-        $arrel = explode('~END~', $resp);
         $i1 = 0;
         $rList = [];
 
-        dd($url,$resp);
-
+        
         if ($args['return-type'] == 'View') {
+            
             $rList = preg_split('/;/', $args['return-list']);
         }
 
-        $vData = [];
+        
+        $this->vData = [];
 
+        
+        
         foreach ($arrel as $val) {
             if ($i1 > 0) {
                 if ($args['return-type'] == 'View') {
+                    
                     $a1 = preg_split('/\|/', $val);
                     if (count($a1) > 2) {
                         $docId = $a1[count($a1) - 1];
-                        $vData[$docId] = array_combine(array_map('trim', $rList), $a1);
-                        $vData[$docId]['DocID'] = $docId;
+                        $this->vData[$docId] = array_combine(array_map('trim', $rList), $a1);
+                        $this->vData[$docId]['DocID'] = $docId;
                     }
                 } elseif ($args['return-type'] == 'Fields') {
                     if (strpos($val, '#@#') > 1) {
                         $a1 = preg_split('/#@#/', $val);
                         if ($args['data-type'] == 'Settings') {
-                            $vSetts[$a1[0]] = $a1[1];
+                            $this->vSetts[$a1[0]] = $a1[1];
                         } else {
-                            $vData[$a1[0]] = $a1[1];
+                            $this->vData[$a1[0]] = $a1[1];
                         }
                     }
                 } elseif ($args['return-type'] == 'Doc') {
                     if (strpos($val, '|') > 1) {
                         $a1 = preg_split('/\|/', $val);
-                        $vData[strtolower($a1[0])] = $a1[1];
+                        $this->vData[strtolower($a1[0])] = $a1[1];
                     }
                 }
             }
             $i1++;
         }
 
-        // Return or store $vData as needed
-        return $vData;
-//         $ck = $this->sessionId;
-//         $url = preg_replace('/\[FLDR\]/', Session::get('fldr'), $args['url']);
-//         $url = preg_replace('/\[RND\]/', $this->generateRandomString(), $url);
-//         $data = isset($args['data']) ? $args['data'] : '';
-//         $data = preg_replace('/\[WKEND\]/', Session::get('weekending'), $data);
-//         $data = preg_replace('/\[NAVDATE\]/', Session::get('navdate'), $data);
-
-//         $response = $this->client->request('GET', $url, [
-//             'headers' => [
-//                 'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/32.0.1700.107 Chrome/32.0.1700.107 Safari/537.36',
-//                 'Cookie' => $ck,
-//             ],
-//         ]);
-
-//         $resp = $response->getBody()->getContents();
-//         $resp = str_replace(["
-// ", "
-// "], '', $resp);
-//         $arrel = explode('~END~', $resp);
-//         $i1 = 0;
-//         $rList = [];
-
-//         if ($args['return-type'] == 'View') {
-//             $rList = preg_split('/;/', $args['return-list']);
-//         }
-
-//         $vData = [];
-
-//         foreach ($arrel as $val) {
-//             if ($i1 > 0) {
-//                 if ($args['return-type'] == 'View') {
-//                     $a1 = preg_split('/\|/', $val);
-//                     if (count($a1) > 2) {
-//                         $docId = $a1[count($a1) - 1];
-//                         $vData[$docId] = array_combine(array_map('trim', $rList), $a1);
-//                         $vData[$docId]['DocID'] = $docId;
-//                     }
-//                 } elseif ($args['return-type'] == 'Fields') {
-//                     if (strpos($val, '#@#') > 1) {
-//                         $a1 = preg_split('/#@#/', $val);
-//                         if ($args['data-type'] == 'Settings') {
-//                             $vSetts[$a1[0]] = $a1[1];
-//                         } else {
-//                             $vData[$a1[0]] = $a1[1];
-//                         }
-//                     }
-//                 } elseif ($args['return-type'] == 'Doc') {
-//                     if (strpos($val, '|') > 1) {
-//                         $a1 = preg_split('/\|/', $val);
-//                         $vData[strtolower($a1[0])] = $a1[1];
-//                     }
-//                 }
-//             }
-//             $i1++;
-//         }
-
-//         // Return or store $vData as needed
-//         return $vData;
-
+        return $this->vData;
         
     }
 
@@ -374,5 +350,101 @@ class ExternalAuthService
         }
     
         return $userData;
+    }
+
+    public function getMenuData(){
+        return $this->parseMenuOptions(session('userData')['menuopts']); 
+    }
+
+    public function collectionUserSettings($content){
+        //DEFAULT URL
+        $ty=$content;
+        $url='https://www.recruitware.uk/[FLDR]/candidates.nsf/ag.searchdata?openagent&[RND]';
+        $colLs=preg_split('/\;/','Candidate Ref;Full Name;Email;Shift Pattern;Location;First Name;Last Name;Job Type;Phone;Assessed;Date Of Birth;Branch;Avail Window;Classification;County;ID');
+        $qry='(Form="Candidate") & (RegStatus="Completed")|0~FirstName;1~LastName;2~Email;3~Mobile;4~UnitName;5~AvailDays;6~EarliestStart;7~LatestStart;8~ClientName;9~AssessedClients;10~DateOfBirth;11~CandidateRef;12~Classification;13~Town;14~County;15~CandidatePack;16~JobType';
+        $ret='First Name;Last Name;Email;Phone;Branch;Shift Pattern;Earliest Start;Latest Start;Location;Assessed;Date Of Birth;Candidate Ref;Classification;Town;County;Pack;Job Type;DocID';
+ 
+        $this->getUserSettings($content);
+
+
+        if (isset($this->vSetts['url'])){
+            $url=$this->vSetts['url'];
+            $colLs=preg_split('/\;/',$this->vSetts['labels']);
+            
+            $qry=$this->vSetts['query'];
+            $ret=$this->vSetts['return-list'];
+            //echo "Settign query to " . $qry;
+            }else{
+            //echo "****NO SETTS***";
+        }
+        $v1=array();
+        $v1['url']=$url;
+        $v1['is-post']='1';
+        $v1['return-type']='View';
+        $v1['data']=$qry;
+        $v1['return-list']=$ret;
+        // dd($content, $v1);
+        $this->getDataUrl($v1);
+        
+        $structuredData = [
+            'columns' => $colLs,
+            'data' => $this->vData,
+            'menu' => $this->getMenuData(),
+        ];
+
+
+        return $structuredData;
+        
+        //loadColTemplates($ty);
+    }
+
+    function parseMenuOptions($menuOptionsString) {
+        $categories = explode('$$', $menuOptionsString);
+        $result = [];
+    
+        foreach ($categories as $category) {
+            $items = explode(';', $category);
+            $mainMenu = '';
+            $subMenu = [];
+    
+            foreach ($items as $index => $item) {
+                $parts = explode('~', $item);
+    
+                if ($index === 0 && strpos($parts[0], '@') !== false) {
+                    // This is a main menu item
+                    list($mainMenu, $firstSubmenuItem) = explode('@', $parts[0], 2);
+                    $parts[0] = $firstSubmenuItem; // Replace with the actual submenu item name
+                }
+    
+                if (count($parts) >= 3) {
+                    $subMenu[] = [
+                        'index' => (int)$parts[2], // Use the provided index
+                        'name' => $parts[0],
+                        'call' => $parts[1]
+                    ];
+                }
+            }
+    
+            if ($mainMenu) {
+                $result[] = [
+                    'name' => $mainMenu,
+                    'submenu' => $subMenu
+                ];
+            } else {
+                // If there's no main menu, add submenu items directly to the result
+                $result = array_merge($result, $subMenu);
+            }
+        }
+    
+        return $result;
+    }
+
+    public function logout()
+    {
+        // Perform any necessary logout actions for the external system
+        // This could include making an API call to invalidate the session, etc.
+        // For now, we'll just clear the internal state
+        $this->sessionId = null;
+        $this->userData = null;
     }
 }

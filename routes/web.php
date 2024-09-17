@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\CandidateController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TableSubmissionController;
@@ -11,32 +12,33 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 
-// $middleware = [];
-// if (app()->environment('local') && config('app.use_dummy_user')) {
-//     $middleware[] = DevAuthMiddleware::class;
-// }
+// Welcome page - accessible to all
+Route::get('/', function () {
+    return Inertia::render('Welcome', [
+        'canLogin' => Route::has('login'),
+        'canRegister' => Route::has('register'),
+        'laravelVersion' => Application::VERSION,
+    'phpVersion' => PHP_VERSION,
+    ]);
+});
 
-// Route::middleware($middleware)->group(function () {
-    Route::get('/', function () {
-        return Inertia::render('Welcome', [
-            'canLogin' => Route::has('login'),
-            'canRegister' => Route::has('register'),
-            'laravelVersion' => Application::VERSION,
-            'phpVersion' => PHP_VERSION,
-        ]);
-    });
-    
+Route::get('/login', [AuthenticatedSessionController::class, 'create'])
+    ->name('login');
+Route::post('/login', [AuthenticatedSessionController::class, 'store']);
+Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
+    ->name('logout');
+
+Route::middleware(['external.auth'])->group(function () {
     Route::get('/dashboard', function () {
         return Inertia::render('Dashboard');
-    })->middleware(['auth', 'verified'])->name('dashboard');
+    })->name('dashboard');
+    
     
     Route::get('/api/dashboard-data', [DashboardController::class, 'getDashboardData']);
     
-    // Route::middleware('auth')->group(function () {
-        Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-        Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    // });
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     
     Route::resource('tablesubmissions', TableSubmissionController::class)->only(['index', 'store', 'create']);
     
@@ -53,7 +55,9 @@ use Inertia\Inertia;
         Route::get('/leavers', [CandidateController::class, 'leavers'])->name('leavers');
         Route::get('/archive', [CandidateController::class, 'archive'])->name('archive');
         Route::get('/no-contact', [CandidateController::class, 'noContactList'])->name('no-contact');
+        
     });
+    Route::get('/{name}/{call}', [CandidateController::class, 'getCandidatePage'])->name('candidates.page');
     
     // Clients routes
     Route::prefix('clients')->name('clients.')->group(function () {
@@ -112,7 +116,7 @@ use Inertia\Inertia;
         Route::get('/financial', [UnderDevelopmentController::class, 'show'])->name('financial');
         Route::get('/hr-report', [UnderDevelopmentController::class, 'show'])->name('hr-report');
     });
-// });
+});
 
 
 require __DIR__.'/auth.php';

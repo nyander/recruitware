@@ -1,59 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React from 'react';
 import { useTable, useSortBy, usePagination } from 'react-table';
 
-const CandidateTable = ({ candidates }) => {
-  const allColumns = useMemo(
-    () => [
-      {
-        Header: 'Name',
-        accessor: 'full_name',
-      },
-      {
-        Header: 'Job Type',
-        accessor: 'job_type',
-      },
-      {
-        Header: 'Branch',
-        accessor: 'branch',
-      },
-      {
-        Header: 'Shift Pattern',
-        accessor: 'shift_pattern',
-      },
-      {
-        Header: 'Classification',
-        accessor: 'classification',
-      },
-      {
-        Header: 'Email',
-        accessor: 'email',
-      },
-      {
-        Header: 'Phone',
-        accessor: 'phone',
-      },
-    ],
-    []
-  );
+const CandidateTable = ({ candidates, columns, onRowClick }) => {
+  console.log("CandidateTable rendered with", candidates.length, "candidates");
 
-  const [selectedColumns, setSelectedColumns] = useState(
-    allColumns.map(column => column.accessor)
-  );
-
-  const toggleColumn = (accessor) => {
-    setSelectedColumns(prev => 
-      prev.includes(accessor)
-        ? prev.filter(col => col !== accessor)
-        : [...prev, accessor]
-    );
+  const handleRowClick = (row) => {
+    console.log("Row clicked:", row.original);
+    onRowClick(row.original);
   };
-
-  const columns = useMemo(
-    () => allColumns.filter(column => selectedColumns.includes(column.accessor)),
-    [allColumns, selectedColumns]
-  );
-
-  const data = useMemo(() => candidates || [], [candidates]);
 
   const {
     getTableProps,
@@ -73,7 +27,7 @@ const CandidateTable = ({ candidates }) => {
   } = useTable(
     {
       columns,
-      data,
+      data: candidates,
       initialState: { pageIndex: 0, pageSize: 10 },
     },
     useSortBy,
@@ -81,50 +35,14 @@ const CandidateTable = ({ candidates }) => {
   );
 
   return (
-    <div>
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold mb-2">Select Columns:</h2>
-        {allColumns.map(column => (
-          <label key={column.accessor} className="inline-flex items-center mr-4">
-            <input
-              type="checkbox"
-              checked={selectedColumns.includes(column.accessor)}
-              onChange={() => toggleColumn(column.accessor)}
-              className="form-checkbox h-5 w-5 text-blue-600"
-            />
-            <span className="ml-2">{column.Header}</span>
-          </label>
-        ))}
-      </div>
-
-      <div className="mb-4">
-        <label className="mr-4">
-          Show 
-          <select
-            value={pageSize}
-            onChange={e => {
-              setPageSize(Number(e.target.value));
-            }}
-            className="mx-2 form-select"
-          >
-            {[5, 10, 20, 30, 40, 50].map(pageSize => (
-              <option key={pageSize} value={pageSize}>
-                {pageSize}
-              </option>
-            ))}
-          </select>
-          entries
-        </label>
-      </div>
-
-      <table className="min-w-full divide-y divide-gray-200">
+    <div className="overflow-x-auto">
+      <table {...getTableProps()} className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
-          {headerGroups.map((headerGroup, i) => (
-            <tr key={i}>
-              {headerGroup.headers.map((column, j) => (
+          {headerGroups.map(headerGroup => (
+            <tr {...headerGroup.getHeaderGroupProps()}>
+              {headerGroup.headers.map(column => (
                 <th
-                  key={j}
-                  onClick={column.getSortByToggleProps().onClick}
+                  {...column.getHeaderProps(column.getSortByToggleProps())}
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                 >
                   {column.render('Header')}
@@ -140,22 +58,33 @@ const CandidateTable = ({ candidates }) => {
             </tr>
           ))}
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody {...getTableBodyProps()} className="bg-white divide-y divide-gray-200">
           {page.map((row, i) => {
-            prepareRow(row);
+            prepareRow(row)
             return (
-              <tr key={i}>
-                {row.cells.map((cell, j) => (
-                  <td key={j} className="px-6 py-4 whitespace-nowrap">
-                    {cell.render('Cell')}
-                  </td>
-                ))}
+              <tr
+                {...row.getRowProps()}
+                onClick={() => handleRowClick(row)}
+                className="cursor-pointer hover:bg-gray-50"
+                key={i}
+              >
+                {row.cells.map(cell => {
+                  return (
+                    <td
+                      {...cell.getCellProps()}
+                      className="px-6 py-4 whitespace-nowrap"
+                    >
+                      {cell.render('Cell')}
+                    </td>
+                  )
+                })}
               </tr>
-            );
+            )
           })}
         </tbody>
       </table>
-
+      
+      {/* Pagination controls */}
       <div className="mt-4 flex items-center justify-between">
         <div>
           <button onClick={() => gotoPage(0)} disabled={!canPreviousPage} className="mr-2 px-4 py-2 border rounded">

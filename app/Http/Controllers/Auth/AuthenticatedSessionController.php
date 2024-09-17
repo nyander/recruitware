@@ -9,8 +9,10 @@ use Illuminate\Foundation\Support\Providers\RouteServiceProvider;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Log;  // Add this line
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -28,6 +30,7 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(): Response
     {
+        
         return Inertia::render('Auth/Login');
     }
 
@@ -50,13 +53,15 @@ class AuthenticatedSessionController extends Controller
         //     'username' => __('auth.failed'),
         // ]);
 
-        $credentials = $request->only('username', 'password');
+        $result = $this->externalAuthService->login($request->input('username'), $request->input('password'));
 
-        if (Auth::guard('external')->attempt($credentials)) {
+        if ($result) {
             $request->session()->regenerate();
+
+            
             return redirect()->intended(route('candidates.live'));
         }
-
+    
         return back()->withErrors([
             'username' => __('auth.failed'),
         ]);
@@ -66,10 +71,20 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
-        // You might need to call a logout method on your ExternalAuthService if required
+        dd("Logging out");
         $this->externalAuthService->logout();
+        // Clear the session data set by ExternalAuthService
+        Session::forget('authID');
+        Session::forget('userName');
+        Session::forget('userData');
+        Session::forget('fldr');
+        Session::forget('navdate');
+        Session::forget('weekending');
 
-        Auth::guard('web')->logout();
+        // Clear cookies set by ExternalAuthService
+        Cookie::queue(Cookie::forget('RW_AuthID'));
+        Cookie::queue(Cookie::forget('RW_Fldr'));
+        Cookie::queue(Cookie::forget('RW_UserID'));
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

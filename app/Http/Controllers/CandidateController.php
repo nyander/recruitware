@@ -5,15 +5,20 @@ namespace App\Http\Controllers;
 use App\Models\Candidate;
 use Illuminate\Http\Request;
 use App\Services\CandidateService;
+use App\Services\ExternalAuthService;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 
 class CandidateController extends Controller
 {
     protected $candidateService;
+    protected $externalAuthService;
 
-    public function __construct(CandidateService $candidateService)
+    public function __construct(CandidateService $candidateService, ExternalAuthService $externalAuthService)
     {
         $this->candidateService = $candidateService;
+        $this->externalAuthService = $externalAuthService;
     }
 
     private function getColumns($status)
@@ -60,48 +65,90 @@ class CandidateController extends Controller
     return array_merge($commonColumns, $statusSpecificColumns[$status] ?? []);
 }
 
-    public function renderCandidateView($status, $viewName)
+public function renderCandidateView($status, $viewName, $candidateData)
+{
+    $candidates = $candidateData["data"];
+    $columns = $candidateData["columns"];
+    $menu = $this->externalAuthService->getMenuData();
+
+
+    // Get session data
+    $authID = session('authID');
+    $userName = session('userName');
+    $userData = session('userData');
+
+    // Create a user object from session data
+    $user = new \stdClass();
+    $user->name = $userData['FullName'] ?? $userName;
+    $user->email = $userData['Email'] ?? '';
+    $user->role = $userData['DefaultRole'] ?? '';
+
+    return Inertia::render("Candidates/{$viewName}", [
+        'auth' => [
+            'user' => $user,
+        ],
+        'candidates' => $candidates,
+        'status' => ucfirst($status),
+        'columns' => $columns,
+        'menu' => $menu, // Pass the menu data to the frontend
+        'sessionInfo' => [
+            'authID' => $authID,
+            'userName' => $userName,
+            'applicationFolder' => $userData['ApplicationFolder'] ?? '',
+            'clientName' => $userData['clientName'] ?? '',
+            'defaultLocation' => $userData['defaultlocation'] ?? '',
+        ],
+    ]);
+}
+
+    public function getCandidatePage(Request $request, $name, $call)
     {
-        
-        $viewData = $this->candidateService->getCandidateViewData($status);
-        
-        return Inertia::render("Candidates/{$viewName}", $viewData);
+        $candidateData = $this->externalAuthService->collectionUserSettings($call);
+        return $this->renderCandidateView($name, 'Index', $candidateData);
     }
 
     public function live()
     {
-        
-        return $this->renderCandidateView('live', 'Index');
+        $candidateData = $this->externalAuthService->collectionUserSettings('Live_Candidates');
+        // make a call to userColumns and dataSource in externalAuthService
+        return $this->renderCandidateView('live', 'Index', $candidateData);
     }
 
     public function new()
     {
-        return $this->renderCandidateView('new', 'Index');
+        $candidateData = $this->externalAuthService->collectionUserSettings('New_Candidates');
+        return $this->renderCandidateView('new', 'Index', $candidateData);
     }
 
     public function audit()
     {
-        return $this->renderCandidateView('audit', 'Index');
+        $candidateData = $this->externalAuthService->collectionUserSettings('Audit_Candidates');
+        return $this->renderCandidateView('audit', 'Index', $candidateData);
     }
 
     public function pending()
     {
-        return $this->renderCandidateView('pending', 'Index');
+        $candidateData = $this->externalAuthService->collectionUserSettings('Pending_Candidates');
+        // dd($candidateData);
+        return $this->renderCandidateView('pending', 'Index', $candidateData);
     }
 
     public function leavers()
     {
-        return $this->renderCandidateView('leaver', 'Index');
+        $candidateData = $this->externalAuthService->collectionUserSettings('Leavers_Candidates');
+        return $this->renderCandidateView('leaver', 'Index', $candidateData);
     }
 
     public function archive()
     {
-        return $this->renderCandidateView('archived', 'Index');
+        $candidateData = $this->externalAuthService->collectionUserSettings('Archive_Candidates');
+        return $this->renderCandidateView('archived', 'Index', $candidateData);
     }
 
     public function noContactList()
     {
-        return $this->renderCandidateView('no_contact', 'Index');
+        $candidateData = $this->externalAuthService->collectionUserSettings('NoContactList_Candidates');
+        return $this->renderCandidateView('no_contact', 'Index', $candidateData);
     }
     
     /**

@@ -3,16 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
+use App\Services\ExternalAuthService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 
 class DashboardController extends Controller
 {
+    protected $externalAuthService;
     public function getDashboardData(): JsonResponse
     {
         $now = Carbon::now();
         $weekStart = $now->startOfWeek();
         $monthStart = $now->copy()->subDays(29);
+        $menu = $this->externalAuthService->getMenuData();
+
 
         $weeklyBookings = Booking::whereBetween('start_date', [$weekStart, $now])->count();
         $weeklyBookingsTarget = 50; // Set your target here
@@ -39,6 +43,7 @@ class DashboardController extends Controller
             'bookingsPerDay' => array_values($bookingsPerDay),
             'lastMonthDates' => $lastMonthDates,
             'lastMonthBookings' => array_values($lastMonthBookings),
+            'menu' => $menu,
         ]);
     }
 }

@@ -48,19 +48,22 @@ class AuthServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        $this->app->singleton(CandidateService::class);
+
         $this->app->singleton(ExternalAuthService::class, function ($app) {
-            return new ExternalAuthService(
-                $app->make(CandidateService::class),
-                $app->make(CandidateController::class)
-            );
+            return new ExternalAuthService($app->make(CandidateService::class));
         });
 
-        $this->app->singleton(CandidateService::class, function ($app) {
-            return new CandidateService();
-        });
+        $this->app->when(CandidateController::class)
+            ->needs(CandidateService::class)
+            ->give(function ($app) {
+                return $app->make(CandidateService::class);
+            });
 
-        $this->app->singleton(CandidateController::class, function ($app) {
-            return new CandidateController($app->make(CandidateService::class));
-        });
+        $this->app->when(CandidateController::class)
+            ->needs(ExternalAuthService::class)
+            ->give(function ($app) {
+                return $app->make(ExternalAuthService::class);
+            });
     }
 }

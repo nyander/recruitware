@@ -2,6 +2,13 @@ import React, { useMemo } from 'react';
 import Table from '../../Components/Charts/Table';
 
 const BookingTable = ({ bookings }) => {
+  const handleRowClick = useCallback((candidate) => {
+      console.log("Row clicked in Candidates component:", candidate);
+      setSelectedCandidate(candidate);
+      setIsModalOpen(true);
+  }, []);
+
+  
   const columns = useMemo(
     () => [
       {
@@ -41,7 +48,11 @@ const BookingTable = ({ bookings }) => {
     []
   );
 
-  return <Table columns={columns} data={bookings} />;
+  return <Table 
+    columns={columns} 
+    data={candidates}
+    onRowClick={handleRowClick}
+   />;
 };
 
 export default BookingTable;

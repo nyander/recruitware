@@ -16,7 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
-        //
+        // Correct way to register your custom middleware
+        $middleware->alias([
+            'external.auth' => \App\Http\Middleware\CheckExternalAuth::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
