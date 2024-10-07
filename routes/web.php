@@ -55,9 +55,11 @@ Route::middleware(['external.auth'])->group(function () {
         Route::get('/leavers', [CandidateController::class, 'leavers'])->name('leavers');
         Route::get('/archive', [CandidateController::class, 'archive'])->name('archive');
         Route::get('/no-contact', [CandidateController::class, 'noContactList'])->name('no-contact');
-        
     });
+    Route::get('/candidates/{id}/edit', [CandidateController::class, 'edit'])->name('candidates.edit');
     Route::get('/{name}/{call}', [CandidateController::class, 'getCandidatePage'])->name('candidates.page');
+    Route::get('/candidate/form-settings', [CandidateController::class, 'getFormSettings'])->name('candidate.form-settings');
+
     
     // Clients routes
     Route::prefix('clients')->name('clients.')->group(function () {

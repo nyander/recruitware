@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Head } from '@inertiajs/react';
+import { usePage } from '@inertiajs/inertia-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Table from '@/Components/Table';
 import CandidateFormModal from './CandidateFormModal.jsx';
@@ -7,15 +8,24 @@ import CandidateFormModal from './CandidateFormModal.jsx';
 const Candidates = ({ auth, candidates, status, columns }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState(null);
-    
-    console.log("Rendering Candidates component with modal open:", isModalOpen);
+    const [formSettings, setFormSettings] = useState(null);
+    const { url } = usePage().props;
 
+
+    // Fetch form settings for the selected candidate when a row is clicked
     const handleRowClick = useCallback((candidate) => {
-      console.log("Row clicked, opening modal with candidate:", candidate);
-      setSelectedCandidate(candidate);
-      setIsModalOpen(true);
+        console.log("Row clicked, fetching form settings for candidate:", candidate);
+        setSelectedCandidate(candidate);  // Set the selected candidate
+        // Fetch form settings dynamically based on the row click
+        fetch(`/candidate/form-settings`)
+            .then(response => response.json())  // Parse JSON response
+            .then(data => {
+                console.log('Form Settings:', data);
+                setFormSettings(data);  // Store the form settings in state
+                setIsModalOpen(true);   // Open the modal after form settings are loaded
+            })
+            .catch(error => console.error('Error fetching form settings:', error));
     }, []);
-    
 
     return (
         <AuthenticatedLayout
@@ -32,8 +42,7 @@ const Candidates = ({ auth, candidates, status, columns }) => {
                             <div className="h-[calc(100vh-300px)]">
                                 <Table 
                                     columns={columns} 
-                                    data={candidates}
-                                    onRowClick={handleRowClick}
+                                    data={Object.values(candidates)}
                                 />
                             </div>
                         </div>
@@ -41,13 +50,12 @@ const Candidates = ({ auth, candidates, status, columns }) => {
                 </div>
             </div>
 
-            {/* Use only this modal */}
             <CandidateFormModal
-              isOpen={isModalOpen}
-              onClose={() => setIsModalOpen(false)}
-              candidate={selectedCandidate}
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                candidate={selectedCandidate}
+                formSettings={formSettings}
             />
-
         </AuthenticatedLayout>
     );
 };

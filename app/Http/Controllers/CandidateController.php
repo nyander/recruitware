@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Services\CandidateService;
 use App\Services\ExternalAuthService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 
@@ -150,7 +151,9 @@ public function renderCandidateView($status, $viewName, $candidateData)
         $candidateData = $this->externalAuthService->collectionUserSettings('NoContactList_Candidates');
         return $this->renderCandidateView('no_contact', 'Index', $candidateData);
     }
+
     
+
     /**
      * Display a listing of the resource.
      */
@@ -186,9 +189,19 @@ public function renderCandidateView($status, $viewName, $candidateData)
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id)
+    public function edit(Request $request, $id)
     {
-        //
+        $candidateData = $request->input('candidate');
+        $getUserSettingsString = "Form|Candidate|". $id;
+        $formSettings = $this->externalAuthService->collectionFormSettings( $getUserSettingsString, $id);
+        $candidateData = array_merge($candidateData);// Get the specific candidate
+        // dd($candidateData);
+        // dd($formSettings);
+
+        return Inertia::render('Candidates/Edit', [
+            'candidate' => $candidateData,
+            'formSettings' => $formSettings,
+        ]);
     }
 
     /**

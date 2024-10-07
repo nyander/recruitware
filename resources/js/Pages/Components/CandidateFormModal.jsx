@@ -1,137 +1,67 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
-const CandidateFormModal = ({ isOpen, onClose, candidate }) => {
-  if (!isOpen) return null; // Only render the modal if isOpen is true
+const CandidateFormModal = ({ isOpen, onClose, candidate, formSettings }) => {
 
-  const tabs = [
-    {
-      id: 'candidates',
-      name: 'Candidate Details',
-      sections: [
-        {
-          id: 'candidateDetails',
-          name: 'Candidate Details',
-          fields: [
-            { label: 'First Name', inputType: 'text', size: 'half', defaultValue: candidate?.['First Name'] },
-            { label: 'Last Name', inputType: 'text', size: 'half', defaultValue: candidate?.['Last Name'] },
-            { label: 'Candidate Reference', inputType: 'text', size: 'half', defaultValue: candidate?.['Candidate Reference'] },
-            { label: 'Last Audit Date', inputType: 'text', size: 'half', defaultValue: candidate?.['Last Audit Date'] },
-            { label: 'Preferred Client', inputType: 'text', size: 'half', defaultValue: candidate?.['Preferred Client'] },
-            { label: 'Preferred Job Type', inputType: 'text', size: 'half', defaultValue: candidate?.['Preferred Job Type'] },
-            { label: 'Other Clients', inputType: 'text', size: 'half', defaultValue: candidate?.['Other Clients'] },
-            { label: 'Client Assessments', inputType: 'text', size: 'half', defaultValue: candidate?.['Client Assessments'] },
-            { label: 'Import References', inputType: 'text', size: 'half', defaultValue: candidate?.['Import References'] },
-            { label: 'Days Available', inputType: 'text', size: 'half', defaultValue: candidate?.['Days Available'] },
-            { label: 'Earliest Start Time', inputType: 'text', size: 'half', defaultValue: candidate?.['Earliest Start Time'] },
-            { label: 'Latest Start', inputType: 'text', size: 'half', defaultValue: candidate?.['Latest Start'] },
-            { label: 'AWR', inputType: 'text', size: 'half', defaultValue: candidate?.['AWR'] },
-            { label: 'Average WTD', inputType: 'text', size: 'half', defaultValue: candidate?.['Average WTD'] },
-            { label: 'Availability Areas', inputType: 'text', size: 'half', defaultValue: candidate?.['Availability Areas'] },
-            { label: 'Available to start', inputType: 'text', size: 'half', defaultValue: candidate?.['Available to start'] },
-            { label: 'JoinedUp Ref', inputType: 'text', size: 'half', defaultValue: candidate?.['JoinedUp Ref'] },
-            { label: 'Profile Picture', inputType: 'file', size: 'half', defaultValue: '' },
-            { label: 'Title', inputType: 'text', size: 'half', defaultValue: candidate?.['Title'] },
-            { label: 'Address', inputType: 'text', size: 'half', defaultValue: candidate?.['Address'] },
-            { label: 'Date Of Birth', inputType: 'date', size: 'half', defaultValue: candidate?.['Date Of Birth'] },
-            { label: 'Line 2', inputType: 'text', size: 'half', defaultValue: candidate?.['Line 2'] },
-            { label: 'Mobile', inputType: 'tel', size: 'half', defaultValue: candidate?.['Mobile'] },
-            { label: 'Town', inputType: 'text', size: 'half', defaultValue: candidate?.['Town'] },
-            { label: 'Email', inputType: 'email', size: 'half', defaultValue: candidate?.['Email'] },
-            { label: 'County', inputType: 'text', size: 'half', defaultValue: candidate?.['County'] },
-            { label: 'Home Phone', inputType: 'tel', size: 'half', defaultValue: candidate?.['Home Phone'] },
-            { label: 'Post Code', inputType: 'text', size: 'half', defaultValue: candidate?.['Post Code'] },
-          ],
-        },
-        {
-          id: 'nextOfKin',
-          name: 'Next Of Kin',
-          fields: [
-            { label: 'Name', inputType: 'text', size: 'half', defaultValue: candidate?.['Next Of Kin']?.['Name'] },
-            { label: 'Relationship', inputType: 'text', size: 'half', defaultValue: candidate?.['Next Of Kin']?.['Relationship'] },
-            { label: 'Mobile', inputType: 'tel', size: 'half', defaultValue: candidate?.['Next Of Kin']?.['Mobile'] },
-            { label: 'Address', inputType: 'text', size: 'half', defaultValue: candidate?.['Next Of Kin']?.['Address'] },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'professional',
-      name: 'Professional Details',
-      sections: [
-        {
-          id: 'candidateEntitlement',
-          name: 'Candidate Entitlement',
-          fields: [
-            {
-              label: 'How are you legally entitled to work in this country?',
-              inputType: 'select',
-              size: 'half',
-              defaultValue: candidate?.legalEntitlement,
-              options: ['British National', 'UK Work Visa', 'EU National'],
-            },
-            { label: 'Nationality', inputType: 'text', size: 'half', defaultValue: candidate?.nationality },
-            { label: 'Passport No.', inputType: 'text', size: 'half', defaultValue: candidate?.passportNo },
-            { label: 'Passport Expiry', inputType: 'date', size: 'half', defaultValue: candidate?.passportExpiry },
-            { label: 'National I.D No', inputType: 'text', size: 'half', defaultValue: candidate?.nationalIDNo },
-            { label: 'NI Number', inputType: 'text', size: 'half', defaultValue: candidate?.niNumber },
-            { label: 'Visa Expiry Date', inputType: 'date', size: 'half', defaultValue: candidate?.visaExpiryDate },
-            { label: 'Sharecode', inputType: 'text', size: 'half', defaultValue: candidate?.sharecode },
-            { label: 'Passport', inputType: 'file', size: 'half', defaultValue: '' },
-            { label: 'Visa', inputType: 'file', size: 'half', defaultValue: '' },
-            { label: 'National I.D', inputType: 'file', size: 'half', defaultValue: '' },
-            { label: 'Sharecode Doc', inputType: 'file', size: 'half', defaultValue: '' },
-            { label: 'Bank Statement', inputType: 'file', size: 'half', defaultValue: '' },
-            { label: 'Birth Certificate', inputType: 'file', size: 'half', defaultValue: '' },
-            { label: 'Utility Bill', inputType: 'file', size: 'half', defaultValue: '' },
-            { label: 'Proof of NI', inputType: 'file', size: 'half', defaultValue: '' },
-          ],
-        },
-        {
-          id: 'drivingLicence',
-          name: 'Driving Licence',
-          fields: [
-            { label: 'Name On Licence', inputType: 'text', size: 'half', defaultValue: candidate?.licenceName },
-            { label: 'Licence No.', inputType: 'text', size: 'half', defaultValue: candidate?.licenceNo },
-            { label: 'Licence Expiry', inputType: 'date', size: 'half', defaultValue: candidate?.licenceExpiry },
-            { label: 'Address on Licence', inputType: 'text', size: 'half', defaultValue: candidate?.licenceAddress },
-            { label: 'Points On Licence', inputType: 'number', size: 'half', defaultValue: candidate?.licencePoints },
-            { label: 'License Check Date', inputType: 'date', size: 'half', defaultValue: candidate?.licenseCheckDate },
-            { label: 'License Check', inputType: 'file', size: 'half', defaultValue: '' },
-            { label: 'Driving Licence Front', inputType: 'file', size: 'half', defaultValue: '' },
-            { label: 'Driving Licence Back', inputType: 'file', size: 'half', defaultValue: '' },
-          ],
-        },
-        {
-          id: 'otherDrivingQualifications',
-          name: 'Other Driving Qualifications',
-          fields: [
-            {
-              label: 'Valid Digital Tacho',
-              inputType: 'select',
-              size: 'half',
-              defaultValue: candidate?.validDigitalTacho,
-              options: ['Yes', 'No'],
-            },
-            { label: 'Digi Tacho No.', inputType: 'text', size: 'half', defaultValue: candidate?.digiTachoNo },
-            { label: 'Tacho Valid From', inputType: 'date', size: 'half', defaultValue: candidate?.tachoValidFrom },
-            { label: 'Tacho Expiry Date', inputType: 'date', size: 'half', defaultValue: candidate?.tachoExpiryDate },
-            { label: 'Tacho Card Front', inputType: 'file', size: 'half', defaultValue: '' },
-            { label: 'Tacho Card Back', inputType: 'file', size: 'half', defaultValue: '' },
-            { label: 'CPC Valid From', inputType: 'date', size: 'half', defaultValue: candidate?.cpcValidFrom },
-            { label: 'CPC Expiry Date', inputType: 'date', size: 'half', defaultValue: candidate?.cpcExpiryDate },
-            { label: 'CPC Card Front', inputType: 'file', size: 'half', defaultValue: '' },
-            { label: 'CPC Card Back', inputType: 'file', size: 'half', defaultValue: '' },
-          ],
-        },
-      ],
-    },
-  ];
+    useEffect(() => {
+        console.log('Form Settings received:', formSettings);
+    }, [formSettings]);
 
-  const [activeTab, setActiveTab] = useState(tabs[0].id);
+    if (!isOpen) return null;
+
+    if (!formSettings) {
+        return (
+            <div className="fixed inset-0 overflow-y-auto z-50" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+                <div className="flex items-center justify-center min-h-screen">
+                    <div className="bg-white p-6 rounded-lg shadow-xl">
+                        <p>Loading form settings...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+  // if (!isOpen) return null;
+
+  const [tabs, setTabs] = useState([]);
+  const [activeTab, setActiveTab] = useState('');
+
+  useEffect(() => {
+    console.log('Form Settings received:', formSettings);
+    if (formSettings && isOpen) {
+      // Transform formSettings into the tabs structure
+      const newTabs = Object.entries(formSettings.data).map(([key, value]) => ({
+        id: key,
+        name: key,
+        sections: [{
+          id: key,
+          name: key,
+          fields: Object.entries(value).map(([fieldKey, fieldValue]) => ({
+            label: fieldKey,
+            inputType: getInputType(fieldValue),
+            size: 'half',
+            defaultValue: candidate?.[fieldKey] || fieldValue,
+          }))
+        }]
+      }));
+      setTabs(newTabs);
+      setActiveTab(newTabs[0]?.id || '');
+    }
+  }, [formSettings, candidate, isOpen]);
+
+  if (!isOpen) return null;
+
+  // Helper function to determine input type
+  const getInputType = (value) => {
+    if (typeof value === 'boolean') return 'checkbox';
+    if (typeof value === 'number') return 'number';
+    if (value instanceof Date) return 'date';
+    return 'text';
+  };
 
   const renderTabContent = () => {
     const currentTab = tabs.find((tab) => tab.id === activeTab);
+
+    if (!currentTab) return null;
 
     return (
       <div className="space-y-8">
@@ -145,18 +75,13 @@ const CandidateFormModal = ({ isOpen, onClose, candidate }) => {
                     {field.label}
                   </label>
                   <div className="mt-1">
-                    {field.inputType === 'select' ? (
-                      <select
+                    {field.inputType === 'checkbox' ? (
+                      <input
+                        type="checkbox"
+                        defaultChecked={field.defaultValue}
                         id={field.label}
-                        defaultValue={field.defaultValue}
-                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                      >
-                        {field.options.map((option, idx) => (
-                          <option key={idx} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
+                        className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                      />
                     ) : (
                       <input
                         type={field.inputType}
@@ -174,6 +99,18 @@ const CandidateFormModal = ({ isOpen, onClose, candidate }) => {
       </div>
     );
   };
+
+  if (!formSettings) {
+    return (
+      <div className="fixed inset-0 overflow-y-auto z-50" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="bg-white p-6 rounded-lg shadow-xl">
+            <p>Loading form settings...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 overflow-y-auto z-50" aria-labelledby="modal-title" role="dialog" aria-modal="true">

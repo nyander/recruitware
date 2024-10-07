@@ -24,6 +24,8 @@ class ExternalAuthService
 
     protected $candidateService;
 
+    protected $url;
+
 
     protected $vSetts;
 
@@ -227,8 +229,12 @@ class ExternalAuthService
             'data-type' => 'Settings',
             'return-type' => 'Fields',
         ];
+        // dd($url);
+
+        // dd($url);
 
 
+        $this->url = $url;
         $this->getDataUrl($args);
     }
 
@@ -260,6 +266,7 @@ class ExternalAuthService
     
         Log::info('Cookies sent with request:', ['cookies' => Session::get('cookieJar')]);
         $resp = $response->getBody()->getContents();
+        // dd($resp);
 
 
 
@@ -312,6 +319,8 @@ class ExternalAuthService
             $i1++;
         }
 
+        
+
         return $this->vData;
         
     }
@@ -356,6 +365,40 @@ class ExternalAuthService
         return $this->parseMenuOptions(session('userData')['menuopts']); 
     }
 
+    public function collectionFormSettings($content, $id){
+        // dd("hello world");
+        // dd("Hello world");
+        // Temporary debug output
+        // Log::info('collectionFormSettings called with content: ' . $content);
+
+
+        $ty=$content;
+        $url='https://www.recruitware.uk/[FLDR]/candidates.nsf/ag.searchdata?openagent&[RND]';
+        $colLs=preg_split('/\;/','Candidate Ref;Full Name;Email;Shift Pattern;Location;First Name;Last Name;Job Type;Phone;Assessed;Date Of Birth;Branch;Avail Window;Classification;County;ID');
+        $qry='(Form="Candidate") & (RegStatus="Completed")|0~FirstName;1~LastName;2~Email;3~Mobile;4~UnitName;5~AvailDays;6~EarliestStart;7~LatestStart;8~ClientName;9~AssessedClients;10~DateOfBirth;11~CandidateRef;12~Classification;13~Town;14~County;15~CandidatePack;16~JobType';
+        $ret='First Name;Last Name;Email;Phone;Branch;Shift Pattern;Earliest Start;Latest Start;Location;Assessed;Date Of Birth;Candidate Ref;Classification;Town;County;Pack;Job Type;DocID';
+ 
+        $this->getUserSettings($content);
+
+
+        if (isset($this->vSetts['url'])){
+            $url=$this->vSetts['url'];
+            //echo "Settign query to " . $qry;
+            }else{
+            //echo "****NO SETTS***";
+        }
+        $v1=array();
+        $v1['url']=$url;
+        $v1['is-post']='0'; // Change this to 0 on getFormSettings
+        $v1['return-type']='Doc'; // 'Doc' for getFormSettings'
+        $this->getDataUrl($v1);
+        $structuredData = $this->structureFormData();
+        
+        return $structuredData;
+        
+        //loadColTemplates($ty);
+    }
+
     public function collectionUserSettings($content){
         //DEFAULT URL
         $ty=$content;
@@ -369,20 +412,20 @@ class ExternalAuthService
 
         if (isset($this->vSetts['url'])){
             $url=$this->vSetts['url'];
-            $colLs=preg_split('/\;/',$this->vSetts['labels']);
+            $colLs=preg_split('/\;/',$this->vSetts['labels']); // not needed on getFormSettings
             
-            $qry=$this->vSetts['query'];
-            $ret=$this->vSetts['return-list'];
+            $qry=$this->vSetts['query']; // not needed on getFormSettings
+            $ret=$this->vSetts['return-list']; // do not need on getFormSettings
             //echo "Settign query to " . $qry;
             }else{
             //echo "****NO SETTS***";
         }
         $v1=array();
         $v1['url']=$url;
-        $v1['is-post']='1';
-        $v1['return-type']='View';
-        $v1['data']=$qry;
-        $v1['return-list']=$ret;
+        $v1['is-post']='1'; // Change this to 0 on getFormSettings
+        $v1['return-type']='View'; // 'Doc' for getFormSettings'
+        $v1['data']=$qry; // do not need on getFormSettings
+        $v1['return-list']=$ret; // not needed on getFormSettings
         // dd($content, $v1);
         $this->getDataUrl($v1);
         
@@ -392,11 +435,14 @@ class ExternalAuthService
             'menu' => $this->getMenuData(),
         ];
 
+        //vData is where we contian all the information required on the getFormSettings
 
         return $structuredData;
         
         //loadColTemplates($ty);
     }
+
+
 
     function parseMenuOptions($menuOptionsString) {
         $categories = explode('$$', $menuOptionsString);
@@ -446,5 +492,41 @@ class ExternalAuthService
         // For now, we'll just clear the internal state
         $this->sessionId = null;
         $this->userData = null;
+    }
+
+
+    public function structureFormData()
+    {
+        $structuredData = [];
+
+        if (!isset($this->vSetts['Tabs'])) {
+            return $structuredData;
+        }
+
+        $tabs = explode('@@', $this->vSetts['Tabs']);
+
+        foreach ($tabs as $tab) {
+            list($tabName, $sectionIds) = explode('~', $tab);
+            $tabData = [
+                'label' => $tabName,
+                'sections' => []
+            ];
+
+            $sectionIds = explode(';', $sectionIds);
+            foreach ($sectionIds as $sectionId) {
+                if (isset($this->vSetts[$sectionId])) {
+                    list($sectionLabel, $columns, $fields) = explode('~', $this->vSetts[$sectionId]);
+                    $tabData['sections'][$sectionId] = [
+                        'label' => $sectionLabel,
+                        'columns' => intval($columns),
+                        'fields' => explode(';', $fields)
+                    ];
+                }
+            }
+
+            $structuredData[] = $tabData;
+        }
+
+        return $structuredData;
     }
 }

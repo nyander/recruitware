@@ -1,23 +1,21 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTable, useSortBy, usePagination } from 'react-table';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
-import { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import CandidateFormModal from '@/Pages/Components/CandidateFormModal';
+import { Link, router } from '@inertiajs/react';
 
-const Table = ({ columns: initialColumns, data: rawData, onRowClick }) => {
 
-  
+const Table = ({ columns: initialColumns, data: rawData }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [formSettings, setFormSettings] = useState(null);
   const [selectedColumns, setSelectedColumns] = useState(initialColumns);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-
   useEffect(() => {
     console.log("Table component mounted or updated");
-    console.log("onRowClick type:", typeof onRowClick);
-}, [onRowClick]);
+  }, []);
 
   const data = useMemo(() => {
     if (typeof rawData !== 'object' || rawData === null) {
@@ -45,11 +43,15 @@ const Table = ({ columns: initialColumns, data: rawData, onRowClick }) => {
   );
 
   const handleRowClick = useCallback((row) => {
-    console.log("Row clicked in Table component:", row.original);
-    setSelectedCandidate(row.original);
-    setIsModalOpen(true);
+    const candidateData = row.original;
+    const id = candidateData.id || candidateData.DocID; // Adjust based on your data structure
+    
+    // Use router.get instead of Inertia.get
+    router.get(route('candidates.edit', { id: id }), { candidate: candidateData }, {
+      preserveState: true,
+      preserveScroll: true,
+    });
   }, []);
-  
 
   const {
     getTableProps,
@@ -88,8 +90,8 @@ const Table = ({ columns: initialColumns, data: rawData, onRowClick }) => {
         </button>
 
         {isDropdownOpen && (
-          <div className="origin-top-left absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-            <div className="py-1">
+          <div className="origin-top-left absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50"> {/* Changed z-10 to z-50 */}
+            <div className="py-1 max-h-60 overflow-y-auto"> {/* Added max-height and overflow */}
               {initialColumns.map((columnName) => (
                 <div
                   key={columnName}
@@ -108,26 +110,6 @@ const Table = ({ columns: initialColumns, data: rawData, onRowClick }) => {
             </div>
           </div>
         )}
-      </div>
-
-      <div className="mb-4">
-        <label className="mr-4">
-          Show 
-          <select
-            value={pageSize}
-            onChange={e => {
-              setPageSize(Number(e.target.value));
-            }}
-            className="mx-2 form-select"
-          >
-            {[5, 10, 20, 30, 40, 50].map(pageSize => (
-              <option key={pageSize} value={pageSize}>
-                {pageSize}
-              </option>
-            ))}
-          </select>
-          entries
-        </label>
       </div>
 
       <div className="flex-grow overflow-auto">
@@ -208,10 +190,11 @@ const Table = ({ columns: initialColumns, data: rawData, onRowClick }) => {
       </div>
 
       <CandidateFormModal
-      isOpen={isModalOpen}
-      onClose={() => setIsModalOpen(false)}
-      candidate={selectedCandidate}
-    />
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        candidate={selectedCandidate}
+        formSettings={formSettings} // Pass formSettings to modal
+      />
     </div>
   );
 };
@@ -219,7 +202,6 @@ const Table = ({ columns: initialColumns, data: rawData, onRowClick }) => {
 Table.propTypes = {
   columns: PropTypes.array.isRequired,
   data: PropTypes.array.isRequired,
-  onRowClick: PropTypes.func
 };
 
 export default Table;

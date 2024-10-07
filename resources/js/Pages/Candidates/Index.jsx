@@ -32,10 +32,10 @@ const Index = ({ auth, candidates, status, columns, menu }) => {
                         <div className="p-6 text-gray-900">
                             <div className="h-[calc(100vh-300px)]"> {/* Adjust the height as needed */}
                             <Table 
-                                    columns={columns} 
-                                    data={candidates}
-                                    onRowClick={handleRowClick}
-                                />
+                                columns={columns} 
+                                data={Object.values(candidates)}
+                                onRowClick={handleRowClick}
+                            />
                             </div>
                         </div>
                     </div>
