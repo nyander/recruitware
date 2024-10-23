@@ -175,13 +175,24 @@ public function renderCandidateView($status, $viewName, $candidateData)
      */
     public function store(Request $request)
     {
-        //
+        $changes = $request->input('changes');
+        $saveUrl = $request->input('saveUrl');
+        $saveData = $request->input('saveData');
+        
+        $formattedChanges = $this->formatChangesForUrl($changes);
+        $saveDataChanges = $this->appendChangesToUrl($saveData, $formattedChanges);
+
+        $this->externalAuthService->updateCandidate($saveUrl, $saveDataChanges);
+        
+        return redirect()->back()
+                        ->with('success', 'Form submitted successfully!');
     }
+
 
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function approve(string $id)
     {
         //
     }
@@ -191,16 +202,17 @@ public function renderCandidateView($status, $viewName, $candidateData)
      */
     public function edit(Request $request, $id)
     {
-        $candidateData = $request->input('candidate');
-        $getUserSettingsString = "Form|Candidate|". $id;
-        $formSettings = $this->externalAuthService->collectionFormSettings( $getUserSettingsString, $id);
-        $candidateData = array_merge($candidateData);// Get the specific candidate
-        // dd($candidateData);
-        // dd($formSettings);
+        
+        $getUserSettingsString = "Fields|Candidate";
+        $formFields = $this->externalAuthService->collectionFormSettings($getUserSettingsString)['sets'];
+        $structuredFormFields = $this->externalAuthService->structureFormFields($formFields);
 
+        $getUserSettingsString = "Form|Candidate|" . $id;
+        $formSettings = $this->externalAuthService->collectionFormSettings($getUserSettingsString);
+        
         return Inertia::render('Candidates/Edit', [
-            'candidate' => $candidateData,
             'formSettings' => $formSettings,
+            'formFields' => $structuredFormFields,
         ]);
     }
 
@@ -218,5 +230,34 @@ public function renderCandidateView($status, $viewName, $candidateData)
     public function destroy(string $id)
     {
         //
+    }
+
+        /**
+     * Format changes array into pipe-separated string
+     * @param array $changes
+     * @return string
+     */
+    private function formatChangesForUrl(array $changes): string
+    {
+        $formattedPairs = [];
+        foreach ($changes as $field => $value) {
+            $formattedPairs[] = $field . '=' . $value;
+        }
+        return implode('|', $formattedPairs);
+    }
+
+    /**
+     * Append formatted changes to the save URL
+     * @param string $saveUrl
+     * @param string $formattedChanges
+     * @return string
+     */
+    private function appendChangesToUrl(string $saveUrl, string $formattedChanges): string
+    {
+        // Remove trailing pipe if it exists
+        $saveUrl = rtrim($saveUrl, '|');
+        
+        // Add the formatted changes
+        return $saveUrl . '|' . $formattedChanges;
     }
 }

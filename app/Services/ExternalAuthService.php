@@ -31,6 +31,8 @@ class ExternalAuthService
 
     protected $vData;
 
+    protected $vText;
+
     public function __construct(CandidateService $candidateService)
     {
         $this->candidateService = $candidateService;
@@ -231,7 +233,7 @@ class ExternalAuthService
         ];
         // dd($url);
 
-        // dd($url);
+        
 
 
         $this->url = $url;
@@ -251,6 +253,9 @@ class ExternalAuthService
         $data = isset($args['data']) ? $args['data'] : '';
 
         
+    
+
+        
         // dd(session('cookieJar'));
         
         
@@ -266,9 +271,6 @@ class ExternalAuthService
     
         Log::info('Cookies sent with request:', ['cookies' => Session::get('cookieJar')]);
         $resp = $response->getBody()->getContents();
-        // dd($resp);
-
-
 
 
 
@@ -288,10 +290,16 @@ class ExternalAuthService
         
         $this->vData = [];
 
+       if ($args['return-type'] == 'Text'){
+            $variableTest = $resp2;
+            $this->vText = $variableTest;
+        }
+
         
         
         foreach ($arrel as $val) {
             if ($i1 > 0) {
+                // dd($val);
                 if ($args['return-type'] == 'View') {
                     
                     $a1 = preg_split('/\|/', $val);
@@ -315,11 +323,11 @@ class ExternalAuthService
                         $this->vData[strtolower($a1[0])] = $a1[1];
                     }
                 }
+                    
             }
             $i1++;
         }
 
-        
 
         return $this->vData;
         
@@ -365,38 +373,54 @@ class ExternalAuthService
         return $this->parseMenuOptions(session('userData')['menuopts']); 
     }
 
-    public function collectionFormSettings($content, $id){
-        // dd("hello world");
-        // dd("Hello world");
+    public function collectionFormSettings($content)
+    {
         // Temporary debug output
-        // Log::info('collectionFormSettings called with content: ' . $content);
+        Log::info('collectionFormSettings called with content: ' . $content);
 
+        $ty = $content;
+        $url = 'https://www.recruitware.uk/[FLDR]/candidates.nsf/ag.searchdata?openagent&[RND]';
+        $colLs = preg_split('/\;/', 'Candidate Ref;Full Name;Email;Shift Pattern;Location;First Name;Last Name;Job Type;Phone;Assessed;Date Of Birth;Branch;Avail Window;Classification;County;ID');
+        $qry = '(Form="Candidate") & (RegStatus="Completed")|0~FirstName;1~LastName;2~Email;3~Mobile;4~UnitName;5~AvailDays;6~EarliestStart;7~LatestStart;8~ClientName;9~AssessedClients;10~DateOfBirth;11~CandidateRef;12~Classification;13~Town;14~County;15~CandidatePack;16~JobType';
+        $ret = 'First Name;Last Name;Email;Phone;Branch;Shift Pattern;Earliest Start;Latest Start;Location;Assessed;Date Of Birth;Candidate Ref;Classification;Town;County;Pack;Job Type;DocID';
 
-        $ty=$content;
-        $url='https://www.recruitware.uk/[FLDR]/candidates.nsf/ag.searchdata?openagent&[RND]';
-        $colLs=preg_split('/\;/','Candidate Ref;Full Name;Email;Shift Pattern;Location;First Name;Last Name;Job Type;Phone;Assessed;Date Of Birth;Branch;Avail Window;Classification;County;ID');
-        $qry='(Form="Candidate") & (RegStatus="Completed")|0~FirstName;1~LastName;2~Email;3~Mobile;4~UnitName;5~AvailDays;6~EarliestStart;7~LatestStart;8~ClientName;9~AssessedClients;10~DateOfBirth;11~CandidateRef;12~Classification;13~Town;14~County;15~CandidatePack;16~JobType';
-        $ret='First Name;Last Name;Email;Phone;Branch;Shift Pattern;Earliest Start;Latest Start;Location;Assessed;Date Of Birth;Candidate Ref;Classification;Town;County;Pack;Job Type;DocID';
- 
         $this->getUserSettings($content);
 
-
-        if (isset($this->vSetts['url'])){
-            $url=$this->vSetts['url'];
-            //echo "Settign query to " . $qry;
-            }else{
-            //echo "****NO SETTS***";
+        if (isset($this->vSetts['url'])) {
+            $url = $this->vSetts['url'];
         }
-        $v1=array();
-        $v1['url']=$url;
-        $v1['is-post']='0'; // Change this to 0 on getFormSettings
-        $v1['return-type']='Doc'; // 'Doc' for getFormSettings'
+
+        $v1 = [
+            'url' => $url,
+            'is-post' => '0',
+            'return-type' => 'Doc',
+        ];
+
         $this->getDataUrl($v1);
-        $structuredData = $this->structureFormData();
-        
+
+        // Check if $content includes "Form"
+        if (strpos($content, 'Form') !== false) {
+            // dd($this->vSetts);
+            $structuredData = [
+                'tabs_Sections' => $this->structureFormData(),
+                'data' => $this->vData,
+                'saveURL' => $this->vSetts['SaveUrl'] ?? '',
+                'saveData' => $this->vSetts['SaveData']?? '',
+                'buttons' => $this->vSetts['Buttons']?? '',
+                'popups' => $this->vSetts['Popups']?? '',
+            ];
+
+
+        } else {
+            $structuredData = [
+                'columns' => $colLs,
+                'data' => $this->vData,
+                'menu' => $this->getMenuData(),
+                'sets' => $this->structureFormFields($this->vSetts),
+            ];
+        }
+
         return $structuredData;
-        
-        //loadColTemplates($ty);
     }
 
     public function collectionUserSettings($content){
@@ -433,11 +457,41 @@ class ExternalAuthService
             'columns' => $colLs,
             'data' => $this->vData,
             'menu' => $this->getMenuData(),
+            'vsetts'=> $this->vSetts,
         ];
 
         //vData is where we contian all the information required on the getFormSettings
 
         return $structuredData;
+        
+        //loadColTemplates($ty);
+    }
+
+    public function updateCandidate($saveUrl, $saveDataChanges){
+        //DEFAULT URL
+        
+        
+        $v1=array();
+        $v1['url']=$saveUrl;
+        $v1['is-post']='1'; // Change this to 0 on getFormSettings
+        $v1['return-type']='Text'; // 'Doc' for getFormSettings'
+        $v1['data']=$saveDataChanges;
+
+        // dd("calling updateCandidate" , $content, $v1);
+        // dd($content, $v1);
+        $this->getDataUrl($v1);
+        
+        // dd($this->vText);
+        // $structuredData = [
+        //     // 'columns' => $colLs,
+        //     'data' => $this->vData,
+        //     'menu' => $this->getMenuData(),
+        //     'vsetts'=> $this->vSetts,
+        // ];
+
+        //vData is where we contian all the information required on the getFormSettings
+
+        // return $structuredData;
         
         //loadColTemplates($ty);
     }
@@ -528,5 +582,44 @@ class ExternalAuthService
         }
 
         return $structuredData;
+    }
+
+    public function structureFormFields(array $formFields)
+    {
+        $structuredFields = [];
+
+        foreach ($formFields as $fieldName => $fieldInfo) {
+            // Check if $fieldInfo is an array
+            if (is_array($fieldInfo)) {
+                // If it's already an array, use it directly
+                $structuredFields[$fieldName] = $fieldInfo;
+            } else {
+                // If it's a string, process it as before
+                $parts = explode(';', $fieldInfo);
+                $label = $parts[0] ?? $fieldName;
+                $type = $parts[1] ?? 'Text';
+                $options = [];
+
+                if ($type === 'Select' && isset($parts[2])) {
+                    $optionPairs = explode('@@', $parts[2]);
+                    foreach ($optionPairs as $pair) {
+                        $pairParts = explode('|', $pair);
+                        if (count($pairParts) === 2) {
+                            $options[] = ['value' => $pairParts[0], 'label' => $pairParts[1]];
+                        } else {
+                            $options[] = ['value' => $pair, 'label' => $pair];
+                        }
+                    }
+                }
+
+                $structuredFields[$fieldName] = [
+                    'label' => $label,
+                    'type' => $type,
+                    'options' => $options,
+                ];
+            }
+        }
+
+        return $structuredFields;
     }
 }

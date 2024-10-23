@@ -1,82 +1,151 @@
 import React, { useState, useEffect } from 'react';
 
-const CandidateForm = ({ candidate, formSettings, onBack, onSave }) => {
-    const [tabs, setTabs] = useState([]);
-    const [activeTab, setActiveTab] = useState('');
-    const [isEditMode, setIsEditMode] = useState(false);
-    const [formData, setFormData] = useState(candidate);
+const CandidateForm = ({ 
+    formSettings, 
+    formFields, 
+    activeTab, 
+    handleFieldChange, 
+    isEditMode, 
+    formData,
+    isSubmitting 
+}) => {
+    const [localFormData, setLocalFormData] = useState({});
 
     useEffect(() => {
-        if (formSettings) {
-            const newTabs = formSettings.map((tabSetting) => ({
-                id: tabSetting.label.toLowerCase().replace(/\s+/g, '-'),
-                name: tabSetting.label,
-                sections: tabSetting.sections || []
-            }));
-            setTabs(newTabs);
-            setActiveTab(newTabs[0]?.id || '');
+        if (formSettings && formSettings.data) {
+            const initialData = { ...formSettings.data };
+            setLocalFormData(initialData);
         }
     }, [formSettings]);
 
-    const getInputType = (fieldName) => {
-        if (['Date Of Birth', 'LicenceExpiry', 'TachoValidFrom', 'TachoExpiry', 'CPCValidFrom', 'CPCExpiry'].includes(fieldName)) return 'date';
-        if (['Mobile', 'KinMobile', 'HomePhone'].includes(fieldName)) return 'tel';
-        if (fieldName === 'Email') return 'email';
-        if (['ProfilePicture', 'LicenceFront', 'LicenceBack', 'TachoFront', 'TachoBack', 'CPCFront', 'CPCBack'].includes(fieldName)) return 'file';
-        if (fieldName.startsWith('Skills') || fieldName.startsWith('Medic') || ['ValidBritishPassport', 'EUCitizen', 'isStudent'].includes(fieldName)) return 'checkbox';
-        return 'text';
-    };
+    useEffect(() => {
+        if (formData) {
+            setLocalFormData(formData);
+        }
+    }, [formData]);
 
     const handleInputChange = (field, value) => {
-        setFormData(prevData => ({
+        if (isSubmitting) return;
+        
+        setLocalFormData((prevData) => ({
             ...prevData,
-            [field]: value
+            [field.toLowerCase()]: value,
         }));
+        handleFieldChange(field, value);
+    };
+
+    const getValueFromData = (field) => {
+        const value = localFormData[field.toLowerCase()];
+        return value !== undefined ? value : formFields[field]?.value || '';
     };
 
     const renderField = (field) => {
-        const inputType = getInputType(field);
-        return (
-            <div key={field} className="mb-4">
-                <label htmlFor={field} className="block text-sm font-medium text-gray-700">
-                    {field}
-                </label>
-                <div className="mt-1">
-                    {inputType === 'checkbox' ? (
-                        <input
-                            type="checkbox"
-                            id={field}
-                            checked={formData[field]}
-                            onChange={(e) => handleInputChange(field, e.target.checked)}
-                            disabled={!isEditMode}
-                            className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                        />
-                    ) : (
-                        <input
-                            type={inputType}
-                            id={field}
-                            value={formData[field] || ''}
-                            onChange={(e) => handleInputChange(field, e.target.value)}
-                            disabled={!isEditMode}
-                            className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                        />
-                    )}
-                </div>
-            </div>
-        );
+        const fieldInfo = formFields[field];
+        if (!fieldInfo) return null;
+
+        const { label, type, options } = fieldInfo;
+        const value = getValueFromData(field);
+
+        const commonProps = {
+            disabled: !isEditMode || isSubmitting,
+            className: `shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md ${
+                (!isEditMode || isSubmitting) ? 'bg-gray-50 cursor-not-allowed opacity-75' : ''
+            }`,
+        };
+
+        switch (type) {
+            case 'Text':
+            case 'Date':
+            case 'Number':
+            case 'Email':
+            case 'Tel':
+                return (
+                    <input
+                        type={type.toLowerCase()}
+                        id={field}
+                        name={field}
+                        defaultValue={value}
+                        onChange={(e) => isEditMode && !isSubmitting && handleInputChange(field, e.target.value)}
+                        {...commonProps}
+                    />
+                );
+            case 'Select':
+                return (
+                    <select
+                        id={field}
+                        name={field}
+                        defaultValue={value}
+                        onChange={(e) => isEditMode && !isSubmitting && handleInputChange(field, e.target.value)}
+                        {...commonProps}
+                    >
+                        <option value="">Select {label}</option>
+                        {options?.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                );
+            case 'Checkbox':
+                return (
+                    <input
+                        type="checkbox"
+                        id={field}
+                        name={field}
+                        defaultChecked={value === true || value === "1" || value === "Yes"}
+                        onChange={(e) => isEditMode && !isSubmitting && handleInputChange(field, e.target.checked)}
+                        disabled={!isEditMode || isSubmitting}
+                        className={`focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded ${
+                            (!isEditMode || isSubmitting) ? 'cursor-not-allowed opacity-75' : ''
+                        }`}
+                    />
+                );
+            case 'Attach':
+                return (
+                    <div className="mt-1">
+                        {value ? (
+                            <a href={value} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800">
+                                View File
+                            </a>
+                        ) : (
+                            <div className="text-sm text-gray-500">No file attached</div>
+                        )}
+                        {isEditMode && !isSubmitting && (
+                            <input
+                                type="file"
+                                id={field}
+                                name={field}
+                                onChange={(e) => handleInputChange(field, e.target.files[0])}
+                                {...commonProps}
+                            />
+                        )}
+                    </div>
+                );
+            default:
+                return null;
+        }
     };
 
     const renderTabContent = () => {
-        const currentTab = tabs.find((tab) => tab.id === activeTab);
-        if (!currentTab) return <div>No tab selected</div>;
+        const currentTab = formSettings.tabs_Sections.find((tab) => tab.label === activeTab);
+        if (!currentTab) return <p>No content available for this tab.</p>;
+
+        const sections = Array.isArray(currentTab.sections) ? currentTab.sections : Object.values(currentTab.sections);
 
         return (
             <div className="space-y-8">
-                {Object.entries(currentTab.sections).map(([sectionKey, section]) => (
-                    <div key={sectionKey} className="section">
+                {sections.map((section) => (
+                    <div key={section.label} className="section">
                         <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">{section.label}</h3>
                         <div className={`grid grid-cols-${section.columns || 1} gap-4`}>
-                            {Array.isArray(section.fields) ? section.fields.map((field) => renderField(field)) : <div>No fields in this section</div>}
+                            {section.fields.map((field) => (
+                                <div key={field} className="mb-4">
+                                    <label htmlFor={field} className="block text-sm font-medium text-gray-700">
+                                        {formFields[field]?.label || field}
+                                    </label>
+                                    <div className="mt-1">{renderField(field)}</div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 ))}
@@ -84,81 +153,9 @@ const CandidateForm = ({ candidate, formSettings, onBack, onSave }) => {
         );
     };
 
-    const handleEdit = () => {
-        setIsEditMode(true);
-    };
-
-    const handleCancel = () => {
-        setIsEditMode(false);
-        setFormData(candidate);
-    };
-
-    const handleSave = () => {
-        onSave(formData);
-        setIsEditMode(false);
-    };
-    const handleBackClick = (e) => {
-        e.preventDefault();
-        onBack();
-    };
-
     return (
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
-            <div className="px-4 py-5 sm:px-6 flex justify-between items-center bg-gray-50">
-                <button
-                    onClick={handleBackClick}
-                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                    ← Back
-                </button>
-                {!isEditMode ? (
-                    <button
-                        onClick={handleEdit}
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    >
-                        Edit
-                    </button>
-                ) : (
-                    <div>
-                        <button
-                            onClick={handleCancel}
-                            className="mr-2 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleSave}
-                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                        >
-                            Save
-                        </button>
-                    </div>
-                )}
-            </div>
-            <div className="px-4 py-5 sm:p-6">
-                <div className="flex h-full">
-                    <div className="w-1/4 pr-4 overflow-y-auto border-r border-gray-200">
-                        <nav className="space-y-1" aria-label="Sidebar">
-                            {tabs.map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={`${
-                                        activeTab === tab.id
-                                            ? 'bg-gray-100 text-gray-900'
-                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                    } group w-full flex items-center px-3 py-2 text-sm font-medium rounded-md`}
-                                >
-                                    {tab.name}
-                                </button>
-                            ))}
-                        </nav>
-                    </div>
-                    <div className="w-3/4 pl-4 overflow-y-auto">
-                        {tabs.length > 0 ? renderTabContent() : <div>No tabs available</div>}
-                    </div>
-                </div>
-            </div>
+        <div className={`w-full ${isSubmitting ? 'pointer-events-none opacity-75' : ''}`}>
+            {renderTabContent()}
         </div>
     );
 };

@@ -11,14 +11,13 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-
 // Welcome page - accessible to all
 Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
         'laravelVersion' => Application::VERSION,
-    'phpVersion' => PHP_VERSION,
+        'phpVersion' => PHP_VERSION,
     ]);
 });
 
@@ -33,7 +32,6 @@ Route::middleware(['external.auth'])->group(function () {
         return Inertia::render('Dashboard');
     })->name('dashboard');
     
-    
     Route::get('/api/dashboard-data', [DashboardController::class, 'getDashboardData']);
     
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -42,7 +40,7 @@ Route::middleware(['external.auth'])->group(function () {
     
     Route::resource('tablesubmissions', TableSubmissionController::class)->only(['index', 'store', 'create']);
     
-        // New routes for bookings and clients
+    // New routes for bookings and clients
     Route::get('/bookings', [TableSubmissionController::class, 'bookings'])->name('bookings.index');
     Route::get('/clients', [TableSubmissionController::class, 'clients'])->name('clients.index');
     
@@ -55,12 +53,13 @@ Route::middleware(['external.auth'])->group(function () {
         Route::get('/leavers', [CandidateController::class, 'leavers'])->name('leavers');
         Route::get('/archive', [CandidateController::class, 'archive'])->name('archive');
         Route::get('/no-contact', [CandidateController::class, 'noContactList'])->name('no-contact');
+        Route::get('/{id}/edit', [CandidateController::class, 'edit'])->name('edit');
+        Route::post('/store', [CandidateController::class, 'store'])->name('store');
+        Route::put('/{id}', [CandidateController::class, 'update'])->name('update');
     });
-    Route::get('/candidates/{id}/edit', [CandidateController::class, 'edit'])->name('candidates.edit');
     Route::get('/{name}/{call}', [CandidateController::class, 'getCandidatePage'])->name('candidates.page');
     Route::get('/candidate/form-settings', [CandidateController::class, 'getFormSettings'])->name('candidate.form-settings');
 
-    
     // Clients routes
     Route::prefix('clients')->name('clients.')->group(function () {
         Route::get('/', [UnderDevelopmentController::class, 'show'])->name('index');
@@ -119,6 +118,5 @@ Route::middleware(['external.auth'])->group(function () {
         Route::get('/hr-report', [UnderDevelopmentController::class, 'show'])->name('hr-report');
     });
 });
-
 
 require __DIR__.'/auth.php';
