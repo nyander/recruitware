@@ -9,11 +9,7 @@ const Index = ({ auth, candidates, status, columns, menu }) => {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState(null);
-    const handleRowClick = useCallback((candidate) => {
-        console.log("Row clicked, opening modal with candidate:", candidate);
-        setSelectedCandidate(candidate);
-        setIsModalOpen(true);
-      }, []);
+    
       
 
 
@@ -34,7 +30,6 @@ const Index = ({ auth, candidates, status, columns, menu }) => {
                             <Table 
                                 columns={columns} 
                                 data={Object.values(candidates)}
-                                onRowClick={handleRowClick}
                             />
                             </div>
                         </div>

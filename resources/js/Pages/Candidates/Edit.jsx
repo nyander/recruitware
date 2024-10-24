@@ -3,8 +3,9 @@ import { Head } from '@inertiajs/react';
 import { Inertia } from '@inertiajs/inertia';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import CandidateForm from '@/Components/CandidateForm';
+import CandidateButtonPopup from '@/Components/CandidateButtonPopup';
 
-const Edit = ({ auth, formSettings, formFields = {}, errors }) => {
+const Edit = ({ auth, formSettings, formFields = {}, errors,menu }) => {
     const [activeTab, setActiveTab] = useState('');
     const [initialFormValues, setInitialFormValues] = useState({});
     const [currentFormValues, setCurrentFormValues] = useState({});
@@ -17,21 +18,87 @@ const Edit = ({ auth, formSettings, formFields = {}, errors }) => {
         save: false,
     });
 
+    const [activePopup, setActivePopup] = useState(null);
+    const [parsedButtons, setParsedButtons] = useState([]);
+    const [parsedPopups, setParsedPopups] = useState({});
+
     useEffect(() => {
         if (formSettings && formSettings.tabs_Sections) {
             setActiveTab(formSettings.tabs_Sections[0]?.label || '');
-            
+
             const initialValues = { ...formSettings.data };
             Object.keys(formFields).forEach((key) => {
                 if (formFields[key].value !== undefined) {
                     initialValues[key] = formFields[key].value;
                 }
             });
-            
+
             setInitialFormValues(initialValues);
             setCurrentFormValues(initialValues);
         }
     }, [formSettings, formFields]);
+
+    useEffect(() => {
+        if (formSettings?.buttons && formSettings?.popups) {
+            parseButtonsAndPopups(formSettings.buttons, formSettings.popups);
+        }
+    }, [formSettings]);
+
+    const parseButtonsAndPopups = (buttonString, popupString) => {
+        const buttons = buttonString.split('@@').map(buttonStr => {
+            const [name, icon, popupId, condition] = buttonStr.split(';');
+            return {
+                name,
+                icon,
+                popupId: popupId.replace('loadPop_', ''),
+                condition
+            };
+        });
+
+        const popups = {};
+        popupString.split('@@').forEach(popupStr => {
+            const [id, title, columns, fields, buttonStr] = popupStr.split('~');
+            console.log("Buttons ", buttonStr);
+            const popupButtons = buttonStr.split('$$').map(btn => {
+                // Destructure and split the button string by `;` to get name and action
+                const [name, ...actions] = btn.split(';');
+                
+                // Handle the case where the action is 'closePopup()'
+                if (actions.length === 1 && actions[0] === 'closePopup()') {
+                  return { name, action: 'closePopup' };
+                }
+              
+                // Initialize an empty updates object to hold all key-value pairs
+                const updates = {};
+              
+                // Iterate through each action and store key-value pairs in the updates object
+                actions.forEach(update => {
+                  const [key, value] = update.split('=');
+                  if (key && value) {
+                    // Check if the value is a variable (e.g., $Author) and preserve it as a string
+                    updates[key] = value.startsWith('$') ? value : value.trim();
+                  }
+                });
+              
+                // Return the name of the button and the associated updates object
+                return { name, updates };
+              });
+              
+
+
+            popups[id] = {
+                id,
+                title,
+                columns: parseInt(columns),
+                fields: fields.split(';'),
+                buttons: popupButtons
+            };
+            console.log("Buttons object",popups[id]);
+        });
+
+        setParsedButtons(buttons);
+        setParsedPopups(popups);
+    };
 
     const handleFieldChange = (fieldName, value) => {
         const updatedValues = { ...currentFormValues, [fieldName]: value };
@@ -50,7 +117,6 @@ const Edit = ({ auth, formSettings, formFields = {}, errors }) => {
             setButtonStates(prev => ({ ...prev, edit: true }));
             setIsEditMode(true);
         } finally {
-            // Reset button state after a short delay
             setTimeout(() => {
                 setButtonStates(prev => ({ ...prev, edit: false }));
             }, 500);
@@ -64,7 +130,6 @@ const Edit = ({ auth, formSettings, formFields = {}, errors }) => {
             setChangedFields({});
             setIsEditMode(false);
         } finally {
-            // Reset button state after a short delay
             setTimeout(() => {
                 setButtonStates(prev => ({ ...prev, cancel: false }));
             }, 500);
@@ -91,10 +156,36 @@ const Edit = ({ auth, formSettings, formFields = {}, errors }) => {
             console.error('Form submission error:', error);
         } finally {
             setIsSubmitting(false);
-            // Reset button state after a short delay
             setTimeout(() => {
                 setButtonStates(prev => ({ ...prev, save: false }));
             }, 500);
+        }
+    };
+
+    const handlePopupSubmit = async (updates) => {
+        try {
+            setIsSubmitting(true);
+
+            const processedUpdates = Object.entries(updates).reduce((acc, [key, value]) => {
+                if (value === '$Author$') {
+                    value = auth.user.name;
+                }
+                acc[key] = value;
+                return acc;
+            }, {});
+
+            await Inertia.post(route('candidates.store'), {
+                id: formSettings.data.id,
+                changes: processedUpdates,
+                saveUrl: formSettings.saveURL,
+                saveData: formSettings.saveData
+            });
+
+            setActivePopup(null);
+        } catch (error) {
+            console.error('Popup submission error:', error);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -103,8 +194,10 @@ const Edit = ({ auth, formSettings, formFields = {}, errors }) => {
     return (
         <AuthenticatedLayout
             user={auth.user}
+            auth={auth}
+            menu={menu}
             header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">
-                {formSettings.data.id ? 'Edit Candidate' : 'Create Candidate'}
+                Edit
             </h2>}
         >
             <Head title={formSettings.data.id ? 'Edit Candidate' : 'Create Candidate'} />
@@ -113,8 +206,9 @@ const Edit = ({ auth, formSettings, formFields = {}, errors }) => {
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
                     <form method="POST" onSubmit={handleSubmit} action={route('candidates.store')}>
                         <input type="hidden" name="_token" value={document.querySelector('meta[name="csrf-token"]').getAttribute('content')} />
-                        <input type="hidden" name="saveUrl" value={formSettings.saveUrl} />
+                        <input type="hidden" name="saveUrl" value={formSettings.saveURL} />
                         <input type="hidden" name="saveData" value={formSettings.saveData} />
+
                         <div className="bg-white shadow-md rounded-lg overflow-hidden">
                             <div className="px-4 py-5 sm:px-6 flex justify-between items-center bg-gray-50">
                                 <button
@@ -164,6 +258,24 @@ const Edit = ({ auth, formSettings, formFields = {}, errors }) => {
                                     )}
                                 </div>
                             </div>
+
+                            {parsedButtons.length > 0 && (
+                                <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
+                                    <div className="flex gap-2 justify-end">
+                                        {parsedButtons.map((button, index) => (
+                                            <button
+                                                key={index}
+                                                type="button"
+                                                onClick={() => setActivePopup(parsedPopups[button.popupId])}
+                                                disabled={isSubmitting}
+                                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                            >
+                                                {button.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="px-4 py-5 sm:p-6">
                                 <div className="flex h-full">
@@ -215,6 +327,17 @@ const Edit = ({ auth, formSettings, formFields = {}, errors }) => {
                     )}
                 </div>
             </div>
+
+            <CandidateButtonPopup
+                isOpen={!!activePopup}
+                onClose={() => setActivePopup(null)}
+                popup={activePopup}
+                formFields={formFields}
+                formSettings={formSettings}
+                formData={currentFormValues}
+                handleSubmit={handlePopupSubmit}
+                isSubmitting={isSubmitting}
+            />
         </AuthenticatedLayout>
     );
 };

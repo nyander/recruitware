@@ -179,13 +179,26 @@ public function renderCandidateView($status, $viewName, $candidateData)
         $saveUrl = $request->input('saveUrl');
         $saveData = $request->input('saveData');
         
-        $formattedChanges = $this->formatChangesForUrl($changes);
+        // Process the changes to replace $Author with session authID
+        $processedChanges = collect($changes)->map(function ($value, $key) {
+            if ($value === '$Author$' || $value === '$Author') {
+                return session('userName');
+            }
+            if ($value === '$AuthorID$' || $value === '$AuthorID') {
+                return session('authID');
+            }
+            return $value;
+        })->all();
+        
+        $formattedChanges = $this->formatChangesForUrl($processedChanges);
         $saveDataChanges = $this->appendChangesToUrl($saveData, $formattedChanges);
+
+        // dd($saveUrl, $saveDataChanges);
 
         $this->externalAuthService->updateCandidate($saveUrl, $saveDataChanges);
         
         return redirect()->back()
-                        ->with('success', 'Form submitted successfully!');
+                ->with('success', 'Form submitted successfully!');
     }
 
 
@@ -209,10 +222,14 @@ public function renderCandidateView($status, $viewName, $candidateData)
 
         $getUserSettingsString = "Form|Candidate|" . $id;
         $formSettings = $this->externalAuthService->collectionFormSettings($getUserSettingsString);
+        $menu = $this->externalAuthService->getMenuData();
+
+        // dd($formSettings, $formFields); 
         
         return Inertia::render('Candidates/Edit', [
             'formSettings' => $formSettings,
             'formFields' => $structuredFormFields,
+            'menu' => $menu, // Pass the menu data to the frontend
         ]);
     }
 

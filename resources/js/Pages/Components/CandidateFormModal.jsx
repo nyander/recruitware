@@ -119,7 +119,7 @@ const CandidateFormModal = ({ isOpen, onClose, candidate, formSettings }) => {
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:w-[60%] sm:max-w-[1000px]">
+        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:w-[60%] sm:max-w-[1000px] w-[80%]">
           <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
             <div className="flex justify-between items-start pb-3 border-b border-gray-200">
               <h3 className="text-lg font-medium leading-6 text-gray-900" id="modal-title">
@@ -141,7 +141,7 @@ const CandidateFormModal = ({ isOpen, onClose, candidate, formSettings }) => {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`${
+                      className={`
                         activeTab === tab.id
                           ? 'bg-gray-100 text-gray-900'
                           : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'

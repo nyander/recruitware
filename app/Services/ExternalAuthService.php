@@ -255,6 +255,7 @@ class ExternalAuthService
         
     
 
+
         
         // dd(session('cookieJar'));
         
@@ -273,6 +274,9 @@ class ExternalAuthService
         $resp = $response->getBody()->getContents();
 
 
+        // if($args['return-type'] == "Text"){
+        //     dd($resp);
+        // }
 
         $resp1 = str_replace("\n", '',$resp);
         $resp2 = str_replace("~END~~END~", '~END~',$resp1);
@@ -400,7 +404,6 @@ class ExternalAuthService
 
         // Check if $content includes "Form"
         if (strpos($content, 'Form') !== false) {
-            // dd($this->vSetts);
             $structuredData = [
                 'tabs_Sections' => $this->structureFormData(),
                 'data' => $this->vData,
@@ -469,7 +472,7 @@ class ExternalAuthService
 
     public function updateCandidate($saveUrl, $saveDataChanges){
         //DEFAULT URL
-        
+        // dd($saveUrl, $saveDataChanges);
         
         $v1=array();
         $v1['url']=$saveUrl;
