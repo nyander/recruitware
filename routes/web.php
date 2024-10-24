@@ -28,10 +28,7 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
     ->name('logout');
 
 Route::middleware(['external.auth'])->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->name('dashboard');
-    
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/dashboard-data', [DashboardController::class, 'getDashboardData']);
     
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

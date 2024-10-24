@@ -231,8 +231,6 @@ class ExternalAuthService
             'data-type' => 'Settings',
             'return-type' => 'Fields',
         ];
-        // dd($url);
-
         
 
 

@@ -8,14 +8,21 @@ import axios from 'axios';
 
 export default function Dashboard({ auth, menu }) {
     const [dashboardData, setDashboardData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
+                setLoading(true);
                 const response = await axios.get('/api/dashboard-data');
                 setDashboardData(response.data);
+                setError(null);
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);
+                setError('Failed to load dashboard data');
+            } finally {
+                setLoading(false);
             }
         };
 
@@ -23,7 +30,23 @@ export default function Dashboard({ auth, menu }) {
     }, []);
 
     const renderCharts = () => {
-        if (!dashboardData) return <div>Loading charts...</div>;
+        if (loading) {
+            return (
+                <div className="flex justify-center items-center h-64">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                </div>
+            );
+        }
+
+        if (error) {
+            return (
+                <div className="bg-red-50 p-4 rounded-md">
+                    <p className="text-red-800">{error}</p>
+                </div>
+            );
+        }
+
+        if (!dashboardData) return null;
 
         const barChartData = {
             labels: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
@@ -31,13 +54,16 @@ export default function Dashboard({ auth, menu }) {
                 {
                     label: 'Bookings per Day',
                     data: dashboardData.bookingsPerDay,
-                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    backgroundColor: 'rgba(79, 70, 229, 0.6)',
+                    borderColor: 'rgb(79, 70, 229)',
+                    borderWidth: 1,
                 },
             ],
         };
 
         const barChartOptions = {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: {
                     position: 'top',
@@ -45,6 +71,10 @@ export default function Dashboard({ auth, menu }) {
                 title: {
                     display: true,
                     text: 'Bookings per Day',
+                    font: {
+                        size: 16,
+                        weight: 'bold',
+                    },
                 },
             },
         };
@@ -55,14 +85,17 @@ export default function Dashboard({ auth, menu }) {
                 {
                     label: 'Bookings',
                     data: dashboardData.lastMonthBookings,
-                    borderColor: 'rgb(75, 192, 192)',
-                    tension: 0.1,
+                    borderColor: 'rgb(79, 70, 229)',
+                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                    fill: true,
+                    tension: 0.4,
                 },
             ],
         };
 
         const lineChartOptions = {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: {
                     position: 'top',
@@ -70,27 +103,37 @@ export default function Dashboard({ auth, menu }) {
                 title: {
                     display: true,
                     text: 'Bookings Trend (Last 30 Days)',
+                    font: {
+                        size: 16,
+                        weight: 'bold',
+                    },
                 },
             },
         };
 
         return (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-                <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                    <h2 className="text-lg font-semibold mb-2">Weekly Bookings</h2>
-                    <GaugeChart
-                        value={dashboardData.weeklyBookings}
-                        max={dashboardData.weeklyBookingsTarget}
-                        label="Bookings"
-                    />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+                <div className="bg-white overflow-hidden shadow-sm rounded-lg p-6">
+                    <h2 className="text-lg font-semibold mb-4 text-gray-900">Weekly Progress</h2>
+                    <div className="h-64 flex items-center justify-center">
+                        <GaugeChart
+                            value={dashboardData.weeklyBookings}
+                            max={dashboardData.weeklyBookingsTarget}
+                            label="Bookings"
+                        />
+                    </div>
                 </div>
-                <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                    <h2 className="text-lg font-semibold mb-2">Bookings per Day</h2>
-                    <BarChart data={barChartData} options={barChartOptions} />
+                <div className="bg-white overflow-hidden shadow-sm rounded-lg p-6">
+                    <h2 className="text-lg font-semibold mb-4 text-gray-900">Daily Distribution</h2>
+                    <div className="h-64">
+                        <BarChart data={barChartData} options={barChartOptions} />
+                    </div>
                 </div>
-                <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                    <h2 className="text-lg font-semibold mb-2">Bookings Trend</h2>
-                    <LineChart data={lineChartData} options={lineChartOptions} />
+                <div className="bg-white overflow-hidden shadow-sm rounded-lg p-6">
+                    <h2 className="text-lg font-semibold mb-4 text-gray-900">Monthly Trend</h2>
+                    <div className="h-64">
+                        <LineChart data={lineChartData} options={lineChartOptions} />
+                    </div>
                 </div>
             </div>
         );
@@ -100,16 +143,54 @@ export default function Dashboard({ auth, menu }) {
         <AuthenticatedLayout
             user={auth.user}
             menu={menu}
-            header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Dashboard</h2>}
+            header={
+                <div className="flex justify-between items-center">
+                    <h2 className="font-semibold text-xl text-gray-800 leading-tight">
+                        Dashboard Overview
+                    </h2>
+                    <div className="text-sm text-gray-500">
+                        Last updated: {new Date().toLocaleString()}
+                    </div>
+                </div>
+            }
         >
             <Head title="Dashboard" />
 
             <div className="py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                    <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                        <div className="p-6 text-gray-900">
-                            <h3 className="text-lg font-semibold mb-4">Welcome to your Dashboard</h3>
-                            <p className="mb-4">Here's an overview of your bookings and trends:</p>
+                    <div className="bg-white overflow-hidden shadow-sm rounded-lg">
+                        <div className="p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                                <div className="bg-indigo-50 p-6 rounded-lg">
+                                    <h3 className="text-lg font-semibold text-indigo-700 mb-2">
+                                        Total Bookings
+                                    </h3>
+                                    <p className="text-3xl font-bold text-indigo-900">
+                                        {dashboardData?.weeklyBookings || 0}
+                                    </p>
+                                    <p className="text-sm text-indigo-600 mt-1">This week</p>
+                                </div>
+                                <div className="bg-green-50 p-6 rounded-lg">
+                                    <h3 className="text-lg font-semibold text-green-700 mb-2">
+                                        Target
+                                    </h3>
+                                    <p className="text-3xl font-bold text-green-900">
+                                        {dashboardData?.weeklyBookingsTarget || 0}
+                                    </p>
+                                    <p className="text-sm text-green-600 mt-1">Weekly goal</p>
+                                </div>
+                                <div className="bg-purple-50 p-6 rounded-lg">
+                                    <h3 className="text-lg font-semibold text-purple-700 mb-2">
+                                        Progress
+                                    </h3>
+                                    <p className="text-3xl font-bold text-purple-900">
+                                        {dashboardData
+                                            ? Math.round((dashboardData.weeklyBookings / dashboardData.weeklyBookingsTarget) * 100)
+                                            : 0}%
+                                    </p>
+                                    <p className="text-sm text-purple-600 mt-1">Of weekly target</p>
+                                </div>
+                            </div>
                             {renderCharts()}
                         </div>
                     </div>
