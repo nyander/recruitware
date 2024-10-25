@@ -46,8 +46,9 @@ Route::get('/login', [AuthenticatedSessionController::class, 'create'])
 Route::post('/login', [AuthenticatedSessionController::class, 'store']);
 
 Route::post('/external-logout', [ExternalAuthController::class, 'logout'])
-    ->name('logout')
+    ->name('external-logout')
     ->middleware(['web']);
+
 
 Route::middleware(['external.auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -55,9 +56,9 @@ Route::middleware(['external.auth'])->group(function () {
 
 
     
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    // Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    // Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     
     Route::resource('tablesubmissions', TableSubmissionController::class)->only(['index', 'store', 'create']);
     

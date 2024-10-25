@@ -527,6 +527,16 @@ class ExternalAuthService
             // Clear internal state
             $this->sessionId = null;
             $this->userData = null;
+            Session::flush();
+
+            // Create cookie forge responses
+            $cookies = [
+                Cookie::forget('laravel_session'),
+                Cookie::forget('XSRF-TOKEN'),
+                Cookie::forget('RW_AuthID'),
+                Cookie::forget('RW_UserID'),
+                Cookie::forget('RW_Fldr')
+            ];
 
             // Clear cookie jar
             $this->cookieJar = new CookieJar();

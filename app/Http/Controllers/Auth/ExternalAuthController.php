@@ -20,6 +20,7 @@ class ExternalAuthController extends Controller
 
     public function logout(Request $request)
     {
+        
         Log::info('External logout endpoint hit', [
             'request_method' => $request->method(),
             'request_path' => $request->path(),
@@ -30,25 +31,13 @@ class ExternalAuthController extends Controller
             // Call external logout
             $this->externalAuthService->logout();
 
-            // Clear Laravel session
-            Session::flush();
+           
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            // Create cookie forge responses
-            $cookies = [
-                Cookie::forget('laravel_session'),
-                Cookie::forget('XSRF-TOKEN'),
-                Cookie::forget('RW_AuthID'),
-                Cookie::forget('RW_UserID'),
-                Cookie::forget('RW_Fldr')
-            ];
-
             Log::info('Logout successful');
 
-            return response()
-                ->json(['message' => 'Logged out successfully'])
-                ->withCookies($cookies);
+            return redirect('/');
 
         } catch (\Exception $e) {
             Log::error('Logout failed', ['error' => $e->getMessage()]);

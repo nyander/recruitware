@@ -1,12 +1,11 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import ApplicationLogo from '@/Components/ApplicationLogo';
-import Dropdown from '@/Components/Dropdown';
 import { Link } from '@inertiajs/react';
 import SidebarMenuItem from './SidebarMenuItem';
 import { 
     Users, Building, Briefcase, Clock, LayoutDashboard, UserPlus, FileText, 
-    CalendarDays, DollarSign, File, PlaneTakeoff
+    CalendarDays, DollarSign, File, PlaneTakeoff, ChevronDown
 } from 'lucide-react';
 
 function getIconForMenu(menuName) {
@@ -40,38 +39,51 @@ function getIconForMenu(menuName) {
 
 export default function Authenticated({ user, header, children, auth, menu = [] }) {
     const [showingSidebar, setShowingSidebar] = useState(false);
+    const [showUserMenu, setShowUserMenu] = useState(false);
 
-    const handleLogout = async (e) => {
-        e.preventDefault();
-        console.log('Logout clicked');
-    
-        try {
-            console.log('inside try');
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-            console.log('csrfToken', csrfToken);
-                
-            // Updated the URL to /external-logout
-            const response = await axios.post('/external-logout', {
-                _token: csrfToken
-            }, {
-                headers: {
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                },
-                withCredentials: true
-            });
-    
-            console.log('Logout response:', response);
-            window.location.href = '/login';
-        } catch (error) {
-            console.error('Logout full error:', error.response?.data, error);
-            
-            if (error.response?.status === 401) {
-                window.location.href = '/login';
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (showUserMenu && !event.target.closest('.user-menu')) {
+                setShowUserMenu(false);
             }
-        }
+        };
+
+        document.addEventListener('click', handleClickOutside);
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [showUserMenu]);
+
+    const handleLogout = (e) => {
+        e.preventDefault();
+        window.location.href = '/login';
     };
+
+    const UserMenu = () => (
+        <div className="relative user-menu">
+            <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150"
+            >
+                {user?.name || 'Guest'}
+                <ChevronDown className="ml-2 h-4 w-4" />
+            </button>
+
+            {showUserMenu && (
+                <div className="absolute bottom-full right-0 mb-2 py-1 w-48 bg-white rounded-md shadow-lg border border-gray-200">
+                    
+                    <Link
+                        href={route('external-logout')}
+                        method="post"
+                        as="button"
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                        Log Out
+                    </Link>
+                </div>
+            )}
+        </div>
+    );
 
     return (
         <div className="min-h-screen bg-gray-100 flex">
@@ -104,41 +116,7 @@ export default function Authenticated({ user, header, children, auth, menu = [] 
                     ))}
                 </nav>
                 <div className="px-4 py-2 border-t border-gray-200">
-                    <Dropdown>
-                        <Dropdown.Trigger>
-                            <span className="inline-flex rounded-md">
-                                <button
-                                    type="button"
-                                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150"
-                                >
-                                    {user?.name || 'Guest'}
-                                    <svg
-                                        className="ms-2 -me-0.5 h-4 w-4"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 20 20"
-                                        fill="currentColor"
-                                    >
-                                        <path
-                                            fillRule="evenodd"
-                                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                            clipRule="evenodd"
-                                        />
-                                    </svg>
-                                </button>
-                            </span>
-                        </Dropdown.Trigger>
-                        <Dropdown.Content align="right" width="48">
-                            <Dropdown.Link href={route('profile.edit')}>
-                                Profile
-                            </Dropdown.Link>
-                            <Dropdown.Link 
-                                onClick={handleLogout}
-                                className="cursor-pointer"
-                            >
-                                Log Out
-                            </Dropdown.Link>
-                        </Dropdown.Content>
-                    </Dropdown>
+                    <UserMenu />
                 </div>
             </div>
 
@@ -178,7 +156,6 @@ export default function Authenticated({ user, header, children, auth, menu = [] 
                             </div>
                             <div className="flex items-center">
                                 <div className="hidden sm:flex items-center space-x-4">
-                                    {/* Add any additional navbar items here */}
                                 </div>
                                 <div className="ml-4 flex items-center">
                                     <span className="hidden sm:inline-flex text-sm text-gray-500 mr-2">
