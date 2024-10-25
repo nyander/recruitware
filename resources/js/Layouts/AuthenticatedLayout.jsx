@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { router } from '@inertiajs/react';
+import axios from 'axios';
 import ApplicationLogo from '@/Components/ApplicationLogo';
 import Dropdown from '@/Components/Dropdown';
 import { Link } from '@inertiajs/react';
@@ -40,6 +40,38 @@ function getIconForMenu(menuName) {
 
 export default function Authenticated({ user, header, children, auth, menu = [] }) {
     const [showingSidebar, setShowingSidebar] = useState(false);
+
+    const handleLogout = async (e) => {
+        e.preventDefault();
+        console.log('Logout clicked');
+    
+        try {
+            console.log('inside try');
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+            console.log('csrfToken', csrfToken);
+                
+            // Updated the URL to /external-logout
+            const response = await axios.post('/external-logout', {
+                _token: csrfToken
+            }, {
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                withCredentials: true
+            });
+    
+            console.log('Logout response:', response);
+            window.location.href = '/login';
+        } catch (error) {
+            console.error('Logout full error:', error.response?.data, error);
+            
+            if (error.response?.status === 401) {
+                window.location.href = '/login';
+            }
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-100 flex">
@@ -95,9 +127,14 @@ export default function Authenticated({ user, header, children, auth, menu = [] 
                                 </button>
                             </span>
                         </Dropdown.Trigger>
-                        <Dropdown.Content>
-                            <Dropdown.Link href={route('profile.edit')}>Profile</Dropdown.Link>
-                            <Dropdown.Link href={route('logout')} method="post" as="button">
+                        <Dropdown.Content align="right" width="48">
+                            <Dropdown.Link href={route('profile.edit')}>
+                                Profile
+                            </Dropdown.Link>
+                            <Dropdown.Link 
+                                onClick={handleLogout}
+                                className="cursor-pointer"
+                            >
                                 Log Out
                             </Dropdown.Link>
                         </Dropdown.Content>

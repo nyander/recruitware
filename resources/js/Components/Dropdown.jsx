@@ -1,5 +1,5 @@
 import { useState, createContext, useContext } from 'react';
-import { Link, router } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { Transition } from '@headlessui/react';
 
 const DropDownContext = createContext();
@@ -8,6 +8,7 @@ const Dropdown = ({ children }) => {
     const [open, setOpen] = useState(false);
 
     const toggleOpen = () => {
+        console.log('Toggle clicked'); // Debug log
         setOpen((previousState) => !previousState);
     };
 
@@ -33,16 +34,15 @@ const Trigger = ({ children }) => {
 const Content = ({ align = 'right', width = '48', contentClasses = 'py-1 bg-white', children }) => {
     const { open, setOpen } = useContext(DropDownContext);
 
-    let alignmentClasses = 'origin-top';
+    let alignmentClasses = 'origin-bottom'; // Changed from origin-top
 
     if (align === 'left') {
-        alignmentClasses = 'ltr:origin-top-left rtl:origin-top-right start-0';
+        alignmentClasses = 'origin-bottom-left left-0'; // Changed positioning
     } else if (align === 'right') {
-        alignmentClasses = 'ltr:origin-top-right rtl:origin-top-left end-0';
+        alignmentClasses = 'origin-bottom-right right-0'; // Changed positioning
     }
 
     let widthClasses = '';
-
     if (width === '48') {
         widthClasses = 'w-48';
     }
@@ -59,41 +59,29 @@ const Content = ({ align = 'right', width = '48', contentClasses = 'py-1 bg-whit
                 leaveTo="opacity-0 scale-95"
             >
                 <div
-                    className={`absolute z-50 mt-2 rounded-md shadow-lg ${alignmentClasses} ${widthClasses}`}
+                    className={`absolute z-50 bottom-full mb-2 rounded-md shadow-lg ${alignmentClasses} ${widthClasses}`} // Changed positioning
                     onClick={() => setOpen(false)}
                 >
-                    <div className={`rounded-md ring-1 ring-black ring-opacity-5 ` + contentClasses}>{children}</div>
+                    <div className={`rounded-md ring-1 ring-black ring-opacity-5 ` + contentClasses}>
+                        {children}
+                    </div>
                 </div>
             </Transition>
         </>
     );
 };
 
-// Dropdown.jsx - update the DropdownLink component
-// Dropdown.jsx
-const DropdownLink = ({ className = '', children, method = 'get', as = 'a', href, ...props }) => {
-    const handleClick = (e) => {
-        if (method.toLowerCase() === 'post') {
-            e.preventDefault();
-            router.post(href);
-            return;
-        }
-    };
-
+const DropdownLink = ({ className = '', children, ...props }) => {
     return (
-        <Link
+        <button
             {...props}
-            href={href}
-            method={method}
-            as={as}
-            onClick={handleClick}
             className={
                 'block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition duration-150 ease-in-out ' +
                 className
             }
         >
             {children}
-        </Link>
+        </button>
     );
 };
 

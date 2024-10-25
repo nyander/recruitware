@@ -103,9 +103,6 @@ class ExternalAuthService
             $rnd = $this->generateRandomString();
             $redirectTo = "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
 
-            $initialBody = null;
-            $finalResponse = null;
-
             $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', [
                 'form_params' => [
                     'UserName' => $username,
@@ -113,57 +110,31 @@ class ExternalAuthService
                     'RedirectTo' => $redirectTo,
                 ],
                 'headers' => [
-                    'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/32.0.1700.107 Chrome/32.0.1700.107 Safari/537.36',
+                    'User-Agent' => 'Mozilla/5.0',
                 ],
                 'allow_redirects' => true,
             ]);
 
-            // Use the final response for getting cookies
-
-            // Use the initial body for parsing user data
-            $body = $initialBody ?? $response->getBody()->getContents();
-            
-            Log::info('ExternalAuthService: Login response received', ['status' => $response->getStatusCode(), 'body' => $body]);
-            
+            $body = $response->getBody()->getContents();
             $this->userData = $this->parseUserData($body);
-
-            
-            if (empty($this->userData)) {
-                Log::error('ExternalAuthService: Failed to parse user data', ['username' => $username]);
-                return null;
-            }
-
-            
-    
-            // Store user data in session
-            // Session::put('userData', $this->userData);
-            
-            // Next phase check the last page which user was at.
-
-        
 
             if ($this->sessionId && $this->userData) {
                 $this->setSessionAndCookies($username);
-                // Manually add the session cookie to the CookieJar
-                $this->cookieJar->setCookie(new \GuzzleHttp\Cookie\SetCookie([
-                    'Name' => 'DomAuthSessId',
-                    'Value' => $this->sessionId,
-                    'Domain' => '.recruitware.uk',
-                    'Path' => '/',
-                ]));
-                return $this->userData;
+
+                // After successfully setting session and cookies, redirect to the intended URL.
+                return redirect()->intended('/dashboard'); // Or any specific route
             }
 
             return null;
-
         } catch (GuzzleException $e) {
-            Log::error('ExternalAuthService: Login exception', ['message' => $e->getMessage()]);
+            Log::error('Login exception', ['message' => $e->getMessage()]);
             return null;
         } catch (\Exception $e) {
-            Log::error('ExternalAuthService: Unexpected error', ['message' => $e->getMessage()]);
+            Log::error('Unexpected error', ['message' => $e->getMessage()]);
             return null;
         }
     }
+
 
     protected function parseLoginResponse($response)
     {
@@ -551,15 +522,20 @@ class ExternalAuthService
     public function logout()
     {
         try {
+            Log::info('External service logout started');
+            
             // Clear internal state
             $this->sessionId = null;
             $this->userData = null;
-            
+
             // Clear cookie jar
             $this->cookieJar = new CookieJar();
+            Log::info('CookieJar cleared', ['cookieJar' => $this->cookieJar]);
             
-            // Make a request to external system's logout endpoint if needed
-            // $this->client->post('logout_endpoint');
+            // If there's a logout endpoint on the external service, call it
+            // Example: $this->client->post('external/logout/endpoint');
+            
+            Log::info('External service logout completed successfully');
             
             return true;
         } catch (\Exception $e) {
@@ -569,6 +545,8 @@ class ExternalAuthService
             throw $e;
         }
     }
+
+
 
 
     public function structureFormData()

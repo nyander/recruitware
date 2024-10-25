@@ -7,6 +7,7 @@ use App\Services\ExternalAuthService;
 use App\Services\AuthLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Log;
@@ -70,39 +71,25 @@ class AuthenticatedSessionController extends Controller
     // app/Http/Controllers/Auth/AuthenticatedSessionController.php
     // AuthenticatedSessionController.php
 
-    public function destroy(Request $request): RedirectResponse
+    public function destroy(Request $request)
     {
-        dd("Hello world!");
-        try {
-            Log::info('Starting logout process', [
-                'session_id' => Session::getId(),
-                'has_session' => Session::has('authID')
-            ]);
+        // Call the ExternalAuthService's logout method
+        $this->externalAuthService->logout();
+        
+        // Clear Laravel's session
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
-            // Perform external service logout
-            if ($this->externalAuthService) {
-                $this->externalAuthService->logout();
-            }
+        // Clear cookies related to Laravel and external authentication
+        Cookie::queue(Cookie::forget('laravel_session'));
+        Cookie::queue(Cookie::forget('XSRF-TOKEN'));
+        Cookie::queue(Cookie::forget('RW_AuthID'));
+        Cookie::queue(Cookie::forget('RW_UserID'));
+        Cookie::queue(Cookie::forget('RW_Fldr'));
 
-            // Clear all session data
-            Session::forget(['authID', 'userName', 'userData', 'fldr']);
-            Session::invalidate();
-            Session::regenerateToken();
-            
-            // Clear specific cookies
-            $response = redirect()->route('login');
-            $response->cookie(Cookie::forget('RW_AuthID'));
-            $response->cookie(Cookie::forget('RW_Fldr'));
-            $response->cookie(Cookie::forget('RW_UserID'));
-
-            return $response;
-
-        } catch (\Exception $e) {
-            Log::error('Logout error', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            throw $e;
-        }
+        // Redirect to the login page
+        return redirect('/login');
     }
+
+
 }

@@ -23,16 +23,11 @@ class CheckExternalAuth
             'path' => $request->path(),
             'all_session_keys' => array_keys(Session::all()),
         ]);
-        // Special handling for logout route
-        if ($routeName === 'logout' && $method === 'POST') {
-            Log::info('Logout route detected, proceeding without session check');
-            return $next($request);
-        }
 
         // Check for valid session
         $requiredSessionKeys = ['authID', 'userName', 'userData', 'fldr'];
         $missingKeys = [];
-        
+
         foreach ($requiredSessionKeys as $key) {
             if (!Session::has($key)) {
                 $missingKeys[] = $key;
@@ -44,27 +39,32 @@ class CheckExternalAuth
                 'missing_keys' => $missingKeys,
                 'route' => $routeName
             ]);
-            
+
             // Only clear sessions and cookies if it's not already a login route
             if ($routeName !== 'login') {
                 $this->clearSessionAndCookies();
+                Log::info("Redirecting to login due to missing session keys");
                 return redirect()->route('login');
             }
         }
 
         // Verify session matches cookies
-        if (Cookie::has('RW_AuthID') && Session::has('authID') && 
+        if (Cookie::has('RW_AuthID') && Session::has('authID') &&
             Cookie::get('RW_AuthID') !== Session::get('authID')) {
             Log::warning('Session-Cookie mismatch', [
                 'cookie_auth_id' => Cookie::get('RW_AuthID'),
                 'session_auth_id' => Session::get('authID')
             ]);
             $this->clearSessionAndCookies();
+            Log::info("Redirecting to login due to session-cookie mismatch");
             return redirect()->route('login');
         }
 
+        Log::info("CheckExternalAuth: No issues found, proceeding with request");
+
         return $next($request);
     }
+
 
     private function clearSessionAndCookies(): void
     {
