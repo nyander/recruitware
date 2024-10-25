@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { router } from '@inertiajs/react';
 import ApplicationLogo from '@/Components/ApplicationLogo';
 import Dropdown from '@/Components/Dropdown';
 import { Link } from '@inertiajs/react';
@@ -94,7 +95,6 @@ export default function Authenticated({ user, header, children, auth, menu = [] 
                                 </button>
                             </span>
                         </Dropdown.Trigger>
-
                         <Dropdown.Content>
                             <Dropdown.Link href={route('profile.edit')}>Profile</Dropdown.Link>
                             <Dropdown.Link href={route('logout')} method="post" as="button">
@@ -140,9 +140,8 @@ export default function Authenticated({ user, header, children, auth, menu = [] 
                                 </div>
                             </div>
                             <div className="flex items-center">
-                                {/* Add any additional navbar items here */}
                                 <div className="hidden sm:flex items-center space-x-4">
-                                    {/* Example: Add notification bell or other icons */}
+                                    {/* Add any additional navbar items here */}
                                 </div>
                                 <div className="ml-4 flex items-center">
                                     <span className="hidden sm:inline-flex text-sm text-gray-500 mr-2">

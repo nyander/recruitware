@@ -9,27 +9,45 @@ use App\Http\Controllers\UnderDevelopmentController;
 use App\Http\Middleware\DevAuthMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 
 // Welcome page - accessible to all
 Route::get('/', function () {
+    $isLoggedIn = Session::has('authID') && Session::has('userData');
+    
+    if (!$isLoggedIn) {
+        Session::flush();
+        Cookie::forget('RW_AuthID');
+        Cookie::forget('RW_Fldr');
+        Cookie::forget('RW_UserID');
+    }
+
+    $userData = Session::get('userData');
+
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
         'laravelVersion' => Application::VERSION,
         'phpVersion' => PHP_VERSION,
+        'auth' => [
+            'user' => $isLoggedIn ? [
+                'name' => $userData['FullName'] ?? $userData['UserName'] ?? null,
+                'email' => $userData['Email'] ?? null,
+            ] : null,
+        ],
     ]);
-});
+})->name('welcome');
 
 Route::get('/login', [AuthenticatedSessionController::class, 'create'])
     ->name('login');
 Route::post('/login', [AuthenticatedSessionController::class, 'store']);
-Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
-    ->name('logout');
 
 Route::middleware(['external.auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/dashboard-data', [DashboardController::class, 'getDashboardData']);
+    Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
+        ->name('logout');
     
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

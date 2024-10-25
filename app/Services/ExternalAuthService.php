@@ -231,6 +231,8 @@ class ExternalAuthService
             'data-type' => 'Settings',
             'return-type' => 'Fields',
         ];
+        // dd($url);
+
         
 
 
@@ -253,7 +255,6 @@ class ExternalAuthService
         
     
 
-
         
         // dd(session('cookieJar'));
         
@@ -272,9 +273,6 @@ class ExternalAuthService
         $resp = $response->getBody()->getContents();
 
 
-        // if($args['return-type'] == "Text"){
-        //     dd($resp);
-        // }
 
         $resp1 = str_replace("\n", '',$resp);
         $resp2 = str_replace("~END~~END~", '~END~',$resp1);
@@ -371,8 +369,18 @@ class ExternalAuthService
         return $userData;
     }
 
-    public function getMenuData(){
-        return $this->parseMenuOptions(session('userData')['menuopts']); 
+    public function getMenuData()
+    {
+        $userData = Session::get('userData');
+        if (!$userData || !isset($userData['menuopts'])) {
+            Log::warning('Menu options not found in session', [
+                'userData_exists' => !empty($userData),
+                'session_id' => Session::getId()
+            ]);
+            return [];
+        }
+        
+        return $this->parseMenuOptions($userData['menuopts']);
     }
 
     public function collectionFormSettings($content)
@@ -539,14 +547,27 @@ class ExternalAuthService
     
         return $result;
     }
-
+// ExternalAuthService.php
     public function logout()
     {
-        // Perform any necessary logout actions for the external system
-        // This could include making an API call to invalidate the session, etc.
-        // For now, we'll just clear the internal state
-        $this->sessionId = null;
-        $this->userData = null;
+        try {
+            // Clear internal state
+            $this->sessionId = null;
+            $this->userData = null;
+            
+            // Clear cookie jar
+            $this->cookieJar = new CookieJar();
+            
+            // Make a request to external system's logout endpoint if needed
+            // $this->client->post('logout_endpoint');
+            
+            return true;
+        } catch (\Exception $e) {
+            Log::error('External service logout failed', [
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
     }
 
 
