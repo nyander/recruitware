@@ -10,6 +10,7 @@ export default function Dashboard({ auth, menu }) {
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isPopupVisible, setIsPopupVisible] = useState(true); // State for popup visibility
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -155,6 +156,24 @@ export default function Dashboard({ auth, menu }) {
             }
         >
             <Head title="Dashboard" />
+
+            {/* Popup Overlay */}
+            {isPopupVisible && (
+                <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-md text-center">
+                        <h2 className="text-lg font-semibold mb-4">Notice</h2>
+                        <p className="mb-6">
+                            The Dashboard is currently under development, and the content here is static information.
+                        </p>
+                        <button
+                            onClick={() => setIsPopupVisible(false)}
+                            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                        >
+                            Understood
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
