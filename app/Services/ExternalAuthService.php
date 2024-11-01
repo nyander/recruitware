@@ -72,6 +72,7 @@ class ExternalAuthService
                     'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/32.0.1700.107 Chrome/32.0.1700.107 Safari/537.36',
                 ],
                 'allow_redirects' => false, // Prevent automatic redirects
+                'verify' => false, // Disable SSL verification
             ]);
 
             // Log response to Laravel log file
@@ -136,6 +137,7 @@ class ExternalAuthService
                     'User-Agent' => 'Mozilla/5.0',
                 ],
                 'allow_redirects' => true,
+                'verify' => false,
             ]);
 
             $body = $response->getBody()->getContents();
@@ -260,6 +262,7 @@ class ExternalAuthService
                 'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/32.0.1700.107 Chrome/32.0.1700.107 Safari/537.36',
                 'Cookie' => $ck,
             ], 'body' =>  $data,
+            'verify' => false,
             
         ]);
     
