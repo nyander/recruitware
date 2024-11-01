@@ -41,9 +41,17 @@ class ExternalAuthService
         $this->cookieJar = new CookieJar();
         $this->client = new Client([
             'base_uri' => $this->baseUrl,
-            // 'timeout'  => 30.0,
             'cookies' => $this->cookieJar,
-            'verify' => false, // Only for testing, enable in production
+            'verify' => true, // Enable SSL verification
+            'curl' => [
+                CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
+                CURLOPT_SSL_CIPHER_LIST => 'TLSv1.2',
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+            ],
+            'headers' => [
+                'User-Agent' => 'Mozilla/5.0 (compatible; RecruitwareClient/1.0)',
+            ],
         ]);
     }
 
@@ -72,10 +80,7 @@ class ExternalAuthService
                     'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/32.0.1700.107 Chrome/32.0.1700.107 Safari/537.36',
                 ],
                 'allow_redirects' => false, // Prevent automatic redirects
-                'verify' => false, // Disable SSL verification
-                'curl' => [
-                    CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
-                ],
+                
             ]);
 
             // Log response to Laravel log file
@@ -140,10 +145,6 @@ class ExternalAuthService
                     'User-Agent' => 'Mozilla/5.0',
                 ],
                 'allow_redirects' => true,
-                'verify' => false,
-                'curl' => [
-                    CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
-                ],
             ]);
 
             $body = $response->getBody()->getContents();
@@ -268,10 +269,6 @@ class ExternalAuthService
                 'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/32.0.1700.107 Chrome/32.0.1700.107 Safari/537.36',
                 'Cookie' => $ck,
             ], 'body' =>  $data,
-            'verify' => false,
-            'curl' => [
-                    CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
-                ],
             
         ]);
     
