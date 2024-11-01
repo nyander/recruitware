@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Head } from '@inertiajs/react';
-import { usePage } from '@inertiajs/inertia-react';
+import { usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Table from '@/Components/Table';
 import CandidateFormModal from './CandidateFormModal.jsx';
