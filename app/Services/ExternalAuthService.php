@@ -73,9 +73,6 @@ class ExternalAuthService
                 ],
                 'allow_redirects' => false, // Prevent automatic redirects
                 'verify' => false, // Disable SSL verification
-                'curl' => [
-                    CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
-                ],
             ]);
 
             // Log response to Laravel log file
@@ -141,9 +138,6 @@ class ExternalAuthService
                 ],
                 'allow_redirects' => true,
                 'verify' => false,
-                'curl' => [
-                    CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
-                ],
             ]);
 
             $body = $response->getBody()->getContents();
@@ -269,9 +263,6 @@ class ExternalAuthService
                 'Cookie' => $ck,
             ], 'body' =>  $data,
             'verify' => false,
-            'curl' => [
-                    CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
-                ],
             
         ]);
     
