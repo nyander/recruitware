@@ -50,6 +50,12 @@ class ExternalAuthService
     public function login($username, $password)
     {
         try {
+            // Log that the login request is starting
+            Log::info('ExternalAuthService: Starting login request', ['username' => $username]);
+
+            // Log to console
+            error_log('ExternalAuthService: Starting login request for username: ' . $username);
+
             $rnd = $this->generateRandomString();
             $redirectTo = "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
 
@@ -68,6 +74,19 @@ class ExternalAuthService
                 'allow_redirects' => false, // Prevent automatic redirects
             ]);
 
+            // Log response to Laravel log file
+            Log::info('ExternalAuthService: Response received', [
+                'status_code' => $response->getStatusCode(),
+                'body' => (string) $response->getBody(),
+                'headers' => $response->getHeaders(),
+            ]);
+
+            // Log response to the console
+            error_log('ExternalAuthService: Response received');
+            error_log('Status Code: ' . $response->getStatusCode());
+            error_log('Body: ' . $response->getBody());
+            error_log('Headers: ' . json_encode($response->getHeaders()));
+
             // Use the final response for getting cookies
             $cookies = $finalResponse ? $finalResponse->getHeader('Set-Cookie') : $response->getHeader('Set-Cookie');
             
@@ -82,20 +101,24 @@ class ExternalAuthService
                 }
             }
 
-            if($this->sessionId) {
+            if ($this->sessionId) {
                 return $this->postLogin($username, $password);
             }
-            
 
             Log::error('ExternalAuthService: Login failed', ['username' => $username]);
             return null;
 
-
         } catch (GuzzleException $e) {
-            Log::error('ExternalAuthService: Login exception', ['message' => $e->getMessage()]);
+            Log::error('ExternalAuthService: Login exception', [
+                'message' => $e->getMessage(),
+                'stack_trace' => $e->getTraceAsString(),
+            ]);
+
+            error_log('ExternalAuthService: Login exception - ' . $e->getMessage());
             return null;
         }
     }
+
 
     public function postLogin($username, $password)
     {
