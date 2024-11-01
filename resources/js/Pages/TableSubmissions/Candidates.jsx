@@ -33,7 +33,7 @@ const Candidates = ({ auth, candidates, status, columns }) => {
             auth={auth}
             header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">{status} Candidates</h2>}
         >
-            <Head title={`${status} Candidates`} />
+            <Head title={`${status} Candidate`} />
 
             <div className="py-12">
                 <div className="max-w-7xl mx-auto lg:px-2">
