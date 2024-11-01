@@ -2,8 +2,8 @@ import React, { useState, useCallback } from 'react';
 import { Head } from '@inertiajs/react';
 import { usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import Table from '@/Components/Table';
-import CandidateFormModal from './CandidateFormModal.jsx';
+import CandidateFormModal from '../Components/CandidateFormModal';
+import Table from '@/Components/Charts/Table';
 
 const Candidates = ({ auth, candidates, status, columns }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
