@@ -37,55 +37,59 @@ class ExternalAuthService
     {
         $this->candidateService = $candidateService;
         $this->baseUrl = config('services.external_auth.base_url', 'https://www.recruitware.uk');
-    
+
         $this->cookieJar = new CookieJar();
         $this->client = new Client([
             'base_uri' => $this->baseUrl,
+            // 'timeout'  => 30.0,
             'cookies' => $this->cookieJar,
-            'verify' => false,
-            'curl' => [
-                CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_SSL_VERIFYHOST => 0,
-                CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1,  // Try older TLS version
-                CURLOPT_TIMEOUT => 30,
-            ],
-            'headers' => [
-                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
-                'Accept' => '*/*',
-                'Connection' => 'keep-alive',
-            ],
+            'verify' => false, // Only for testing, enable in production
         ]);
     }
-    
+
     public function login($username, $password)
     {
         try {
+            // Log that the login request is starting
             Log::info('ExternalAuthService: Starting login request', ['username' => $username]);
-    
+
+            // Log to console
+            error_log('ExternalAuthService: Starting login request for username: ' . $username);
+
             $rnd = $this->generateRandomString();
             $redirectTo = "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
-    
-            $options = [
+
+            $initialBody = null;
+            $finalResponse = null;
+
+            $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', [
                 'form_params' => [
                     'UserName' => $username,
                     'Password' => $password,
                     'RedirectTo' => $redirectTo,
                 ],
                 'headers' => [
-                    'Content-Type' => 'application/x-www-form-urlencoded',
+                    'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/32.0.1700.107 Chrome/32.0.1700.107 Safari/537.36',
                 ],
-                'allow_redirects' => false,
-            ];
-    
-            $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', $options);
-    
+                'allow_redirects' => false, // Prevent automatic redirects
+            ]);
+
+            // Log response to Laravel log file
             Log::info('ExternalAuthService: Response received', [
                 'status_code' => $response->getStatusCode(),
-                'headers' => $response->getHeaders()
+                'body' => (string) $response->getBody(),
+                'headers' => $response->getHeaders(),
             ]);
-    
-            $cookies = $response->getHeader('Set-Cookie');
-                
+
+            // Log response to the console
+            error_log('ExternalAuthService: Response received');
+            error_log('Status Code: ' . $response->getStatusCode());
+            error_log('Body: ' . $response->getBody());
+            error_log('Headers: ' . json_encode($response->getHeaders()));
+
+            // Use the final response for getting cookies
+            $cookies = $finalResponse ? $finalResponse->getHeader('Set-Cookie') : $response->getHeader('Set-Cookie');
+            
             $this->sessionId = null;
             foreach ($cookies as $cookie) {
                 if (strpos($cookie, 'DomAuthSessId') !== false) {
@@ -96,59 +100,60 @@ class ExternalAuthService
                     }
                 }
             }
-    
+
             if ($this->sessionId) {
                 return $this->postLogin($username, $password);
             }
-    
+
             Log::error('ExternalAuthService: Login failed', ['username' => $username]);
             return null;
-    
+
         } catch (GuzzleException $e) {
             Log::error('ExternalAuthService: Login exception', [
                 'message' => $e->getMessage(),
-                'stack_trace' => $e->getTraceAsString()
+                'stack_trace' => $e->getTraceAsString(),
             ]);
-    
+
             error_log('ExternalAuthService: Login exception - ' . $e->getMessage());
             return null;
         }
     }
-    
+
+
     public function postLogin($username, $password)
     {
         try {
             $rnd = $this->generateRandomString();
             $redirectTo = "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
-    
-            $options = [
+
+            $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', [
                 'form_params' => [
                     'UserName' => $username,
                     'Password' => $password,
                     'RedirectTo' => $redirectTo,
                 ],
                 'headers' => [
-                    'Content-Type' => 'application/x-www-form-urlencoded',
-                    'Cookie' => 'DomAuthSessId=' . $this->sessionId,
+                    'User-Agent' => 'Mozilla/5.0',
                 ],
                 'allow_redirects' => true,
-            ];
-    
-            $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', $options);
-    
+            ]);
+
             $body = $response->getBody()->getContents();
             $this->userData = $this->parseUserData($body);
-    
+
             if ($this->sessionId && $this->userData) {
                 $this->setSessionAndCookies($username);
-                return redirect()->intended('/dashboard');
+
+                // After successfully setting session and cookies, redirect to the intended URL.
+                return redirect()->intended('/dashboard'); // Or any specific route
             }
-    
+
             return null;
         } catch (GuzzleException $e) {
-            Log::error('Login exception', [
-                'message' => $e->getMessage()
-            ]);
+            Log::error('Login exception', ['message' => $e->getMessage()]);
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Unexpected error', ['message' => $e->getMessage()]);
             return null;
         }
     }
