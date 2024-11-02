@@ -44,6 +44,7 @@ class ExternalAuthService
             // 'timeout'  => 30.0,
             'cookies' => $this->cookieJar,
             'verify' => false, // Only for testing, enable in production
+            'curl' => [CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2],
         ]);
     }
 
