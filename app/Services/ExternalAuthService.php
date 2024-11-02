@@ -41,10 +41,13 @@ class ExternalAuthService
         $this->cookieJar = new CookieJar();
         $this->client = new Client([
             'base_uri' => $this->baseUrl,
-            // 'timeout'  => 30.0,
             'cookies' => $this->cookieJar,
-            'verify' => false, // Only for testing, enable in production
-            'curl' => [CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2],
+            'verify' => false, // Only for testing
+            'curl' => [
+                CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
+                CURLOPT_SSL_CIPHER_LIST => 'TLSv1.2',
+                // CURLOPT_CONNECT_TIMEOUT => 30,
+            ],
         ]);
     }
 
@@ -63,16 +66,21 @@ class ExternalAuthService
             $initialBody = null;
             $finalResponse = null;
 
-            $response = $this->client->post('https://recruitware.uk/names.nsf?login', [
+            $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', [
                 'form_params' => [
                     'UserName' => $username,
                     'Password' => $password,
                     'RedirectTo' => $redirectTo,
                 ],
                 'headers' => [
-                    'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/32.0.1700.107 Chrome/32.0.1700.107 Safari/537.36',
+                    'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
                 ],
-                'allow_redirects' => false, // Prevent automatic redirects
+                'allow_redirects' => false,
+                'verify' => false,
+                'curl' => [
+                    CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
+                    CURLOPT_SSL_CIPHER_LIST => 'TLSv1.2',
+                ],
             ]);
 
             // Log response to Laravel log file
