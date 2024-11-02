@@ -44,15 +44,16 @@ class ExternalAuthService
             'cookies' => $this->cookieJar,
             'verify' => false,
             'curl' => [
-                CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
-                CURLOPT_SSLVERSION => CURL_SSLVERSION_MAX_DEFAULT,
+                CURLOPT_SSL_CIPHER_LIST => 'TLSv1.2',
+                CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
                 CURLOPT_SSL_VERIFYPEER => false,
                 CURLOPT_SSL_VERIFYHOST => 0,
                 CURLOPT_TIMEOUT => 30,
                 CURLOPT_CONNECTTIMEOUT => 30,
                 CURLOPT_MAXREDIRS => 3,
                 CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_SSL_FALLBACK => true,
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP,
+                CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP,
             ],
             'allow_redirects' => true,
             'http_errors' => false,
@@ -60,8 +61,11 @@ class ExternalAuthService
             'headers' => [
                 'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
                 'Accept' => '*/*',
+                'Accept-Encoding' => 'gzip, deflate, br',
+                'Accept-Language' => 'en-US,en;q=0.9',
                 'Connection' => 'keep-alive',
             ],
+            'decode_content' => true,
         ]);
     }
 
