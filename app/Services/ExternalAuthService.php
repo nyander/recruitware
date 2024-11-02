@@ -44,8 +44,8 @@ class ExternalAuthService
             'cookies' => $this->cookieJar,
             'verify' => false, // Only for testing
             'curl' => [
-                CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
-                CURLOPT_SSL_CIPHER_LIST => 'TLSv1.2',
+                CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_TLSv1_1 | CURL_SSLVERSION_TLSv1_0,
+                CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
                 // CURLOPT_CONNECT_TIMEOUT => 30,
             ],
         ]);
