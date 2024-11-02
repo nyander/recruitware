@@ -44,9 +44,12 @@ class ExternalAuthService
             'cookies' => $this->cookieJar,
             'verify' => false, // Only for testing
             'curl' => [
-                CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_TLSv1_1 | CURL_SSLVERSION_TLSv1_0,
-                CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
-                // CURLOPT_CONNECT_TIMEOUT => 30,
+                CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_SSLCERT => false,
+                CURLOPT_TIMEOUT => 30,
+                CURLOPT_CONNECTTIMEOUT => 30,
             ],
         ]);
     }
@@ -54,17 +57,11 @@ class ExternalAuthService
     public function login($username, $password)
     {
         try {
-            // Log that the login request is starting
             Log::info('ExternalAuthService: Starting login request', ['username' => $username]);
-
-            // Log to console
             error_log('ExternalAuthService: Starting login request for username: ' . $username);
 
             $rnd = $this->generateRandomString();
             $redirectTo = "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
-
-            $initialBody = null;
-            $finalResponse = null;
 
             $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', [
                 'form_params' => [
@@ -74,16 +71,26 @@ class ExternalAuthService
                 ],
                 'headers' => [
                     'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
+                    'Accept' => '*/*',
+                    'Connection' => 'keep-alive',
+                    'Content-Type' => 'application/x-www-form-urlencoded',
+                    'Accept-Encoding' => 'gzip, deflate, br',
+                    'Accept-Language' => 'en-US,en;q=0.9',
                 ],
                 'allow_redirects' => false,
                 'verify' => false,
                 'curl' => [
-                    CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_TLSv1_1 | CURL_SSLVERSION_TLSv1_0,
-                    CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
+                    CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_SSL_VERIFYHOST => false,
+                    CURLOPT_SSLCERT => false,
+                    CURLOPT_FOLLOWLOCATION => false,
+                    CURLOPT_TIMEOUT => 30,
+                    CURLOPT_CONNECTTIMEOUT => 30,
                 ],
             ]);
 
-            // Log response to Laravel log file
+            // Log response
             Log::info('ExternalAuthService: Response received', [
                 'status_code' => $response->getStatusCode(),
                 'body' => (string) $response->getBody(),
@@ -96,9 +103,9 @@ class ExternalAuthService
             error_log('Body: ' . $response->getBody());
             error_log('Headers: ' . json_encode($response->getHeaders()));
 
-            // Use the final response for getting cookies
-            $cookies = $finalResponse ? $finalResponse->getHeader('Set-Cookie') : $response->getHeader('Set-Cookie');
-            
+            // Get cookies from response
+            $cookies = $response->getHeader('Set-Cookie');
+                
             $this->sessionId = null;
             foreach ($cookies as $cookie) {
                 if (strpos($cookie, 'DomAuthSessId') !== false) {
@@ -118,9 +125,23 @@ class ExternalAuthService
             return null;
 
         } catch (GuzzleException $e) {
+            // Log the error with detailed information
             Log::error('ExternalAuthService: Login exception', [
                 'message' => $e->getMessage(),
                 'stack_trace' => $e->getTraceAsString(),
+                'request_info' => [
+                    'url' => $this->baseUrl . '/names.nsf?login',
+                    'method' => 'POST',
+                    'headers' => [
+                        'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
+                        'Accept' => '*/*',
+                    ],
+                    'form_params' => [
+                        'UserName' => $username,
+                        'RedirectTo' => $redirectTo,
+                        // Don't log the password
+                    ]
+                ]
             ]);
 
             error_log('ExternalAuthService: Login exception - ' . $e->getMessage());
@@ -135,6 +156,11 @@ class ExternalAuthService
             $rnd = $this->generateRandomString();
             $redirectTo = "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
 
+            Log::info('ExternalAuthService: Attempting post-login request', [
+                'username' => $username,
+                'sessionId' => $this->sessionId
+            ]);
+
             $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', [
                 'form_params' => [
                     'UserName' => $username,
@@ -143,26 +169,68 @@ class ExternalAuthService
                 ],
                 'headers' => [
                     'User-Agent' => 'Mozilla/5.0',
+                    'Accept' => '*/*',
+                    'Connection' => 'keep-alive',
+                    'Content-Type' => 'application/x-www-form-urlencoded',
+                    'Accept-Encoding' => 'gzip, deflate, br',
+                    'Accept-Language' => 'en-US,en;q=0.9',
+                    'Cookie' => 'DomAuthSessId=' . $this->sessionId,
                 ],
                 'allow_redirects' => true,
+                'verify' => false,
+                'curl' => [
+                    CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_SSL_VERIFYHOST => false,
+                    CURLOPT_SSLCERT => false,
+                    CURLOPT_TIMEOUT => 30,
+                    CURLOPT_CONNECTTIMEOUT => 30,
+                ],
+            ]);
+
+            Log::info('ExternalAuthService: Post-login response received', [
+                'status_code' => $response->getStatusCode(),
+                'headers' => $response->getHeaders()
             ]);
 
             $body = $response->getBody()->getContents();
             $this->userData = $this->parseUserData($body);
 
             if ($this->sessionId && $this->userData) {
-                $this->setSessionAndCookies($username);
+                Log::info('ExternalAuthService: Login successful', [
+                    'username' => $username,
+                    'session_established' => true
+                ]);
 
-                // After successfully setting session and cookies, redirect to the intended URL.
-                return redirect()->intended('/dashboard'); // Or any specific route
+                $this->setSessionAndCookies($username);
+                return redirect()->intended('/dashboard');
             }
 
+            Log::warning('ExternalAuthService: Post-login failed', [
+                'username' => $username,
+                'has_session_id' => !empty($this->sessionId),
+                'has_user_data' => !empty($this->userData)
+            ]);
+
             return null;
+
         } catch (GuzzleException $e) {
-            Log::error('Login exception', ['message' => $e->getMessage()]);
+            Log::error('ExternalAuthService: Post-login exception', [
+                'message' => $e->getMessage(),
+                'request_info' => [
+                    'url' => $this->baseUrl . '/names.nsf?login',
+                    'method' => 'POST',
+                    'username' => $username,
+                    'has_session_id' => !empty($this->sessionId)
+                ]
+            ]);
             return null;
+
         } catch (\Exception $e) {
-            Log::error('Unexpected error', ['message' => $e->getMessage()]);
+            Log::error('ExternalAuthService: Unexpected error during post-login', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return null;
         }
     }
