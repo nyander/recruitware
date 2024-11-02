@@ -36,22 +36,14 @@ class ExternalAuthService
     public function __construct(CandidateService $candidateService)
     {
         $this->candidateService = $candidateService;
-        $this->baseUrl = config('services.external_auth.base_url', 'https://www.recruitware.uk');
+        $this->baseUrl = config('services.external_auth.base_url', 'https://recruitware.uk');
 
         $this->cookieJar = new CookieJar();
         $this->client = new Client([
             'base_uri' => $this->baseUrl,
+            // 'timeout'  => 30.0,
             'cookies' => $this->cookieJar,
-            'verify' => true, // Enable SSL verification
-            'curl' => [
-                CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
-                CURLOPT_SSL_CIPHER_LIST => 'TLSv1.2',
-                CURLOPT_SSL_VERIFYPEER => true,
-                CURLOPT_SSL_VERIFYHOST => 2,
-            ],
-            'headers' => [
-                'User-Agent' => 'Mozilla/5.0 (compatible; RecruitwareClient/1.0)',
-            ],
+            'verify' => false, // Only for testing, enable in production
         ]);
     }
 
@@ -65,12 +57,12 @@ class ExternalAuthService
             error_log('ExternalAuthService: Starting login request for username: ' . $username);
 
             $rnd = $this->generateRandomString();
-            $redirectTo = "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
+            $redirectTo = "https://recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
 
             $initialBody = null;
             $finalResponse = null;
 
-            $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', [
+            $response = $this->client->post('https://recruitware.uk/names.nsf?login', [
                 'form_params' => [
                     'UserName' => $username,
                     'Password' => $password,
@@ -80,7 +72,6 @@ class ExternalAuthService
                     'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/32.0.1700.107 Chrome/32.0.1700.107 Safari/537.36',
                 ],
                 'allow_redirects' => false, // Prevent automatic redirects
-                
             ]);
 
             // Log response to Laravel log file
@@ -133,9 +124,9 @@ class ExternalAuthService
     {
         try {
             $rnd = $this->generateRandomString();
-            $redirectTo = "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
+            $redirectTo = "https://recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
 
-            $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', [
+            $response = $this->client->post('https://recruitware.uk/names.nsf?login', [
                 'form_params' => [
                     'UserName' => $username,
                     'Password' => $password,
@@ -392,7 +383,7 @@ class ExternalAuthService
         Log::info('collectionFormSettings called with content: ' . $content);
 
         $ty = $content;
-        $url = 'https://www.recruitware.uk/[FLDR]/candidates.nsf/ag.searchdata?openagent&[RND]';
+        $url = 'https://recruitware.uk/[FLDR]/candidates.nsf/ag.searchdata?openagent&[RND]';
         $colLs = preg_split('/\;/', 'Candidate Ref;Full Name;Email;Shift Pattern;Location;First Name;Last Name;Job Type;Phone;Assessed;Date Of Birth;Branch;Avail Window;Classification;County;ID');
         $qry = '(Form="Candidate") & (RegStatus="Completed")|0~FirstName;1~LastName;2~Email;3~Mobile;4~UnitName;5~AvailDays;6~EarliestStart;7~LatestStart;8~ClientName;9~AssessedClients;10~DateOfBirth;11~CandidateRef;12~Classification;13~Town;14~County;15~CandidatePack;16~JobType';
         $ret = 'First Name;Last Name;Email;Phone;Branch;Shift Pattern;Earliest Start;Latest Start;Location;Assessed;Date Of Birth;Candidate Ref;Classification;Town;County;Pack;Job Type;DocID';
@@ -438,7 +429,7 @@ class ExternalAuthService
     public function collectionUserSettings($content){
         //DEFAULT URL
         $ty=$content;
-        $url='https://www.recruitware.uk/[FLDR]/candidates.nsf/ag.searchdata?openagent&[RND]';
+        $url='https://recruitware.uk/[FLDR]/candidates.nsf/ag.searchdata?openagent&[RND]';
         $colLs=preg_split('/\;/','Candidate Ref;Full Name;Email;Shift Pattern;Location;First Name;Last Name;Job Type;Phone;Assessed;Date Of Birth;Branch;Avail Window;Classification;County;ID');
         $qry='(Form="Candidate") & (RegStatus="Completed")|0~FirstName;1~LastName;2~Email;3~Mobile;4~UnitName;5~AvailDays;6~EarliestStart;7~LatestStart;8~ClientName;9~AssessedClients;10~DateOfBirth;11~CandidateRef;12~Classification;13~Town;14~County;15~CandidatePack;16~JobType';
         $ret='First Name;Last Name;Email;Phone;Branch;Shift Pattern;Earliest Start;Latest Start;Location;Assessed;Date Of Birth;Candidate Ref;Classification;Town;County;Pack;Job Type;DocID';
