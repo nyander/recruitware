@@ -46,10 +46,15 @@ class ExternalAuthService
             'curl' => [
                 CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
                 CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_SSL_VERIFYHOST => false,
-                CURLOPT_SSLCERT => false,
+                CURLOPT_SSL_VERIFYHOST => 0,
                 CURLOPT_TIMEOUT => 30,
                 CURLOPT_CONNECTTIMEOUT => 30,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            ],
+            'headers' => [
+                'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
+                'Accept' => '*/*',
+                'Connection' => 'keep-alive',
             ],
         ]);
     }
@@ -70,29 +75,54 @@ class ExternalAuthService
                     'RedirectTo' => $redirectTo,
                 ],
                 'headers' => [
-                    'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
-                    'Accept' => '*/*',
-                    'Connection' => 'keep-alive',
+                    'Content-Type' => 'application/x-www-form-urlencoded',
+                    'Accept-Encoding' => 'gzip, deflate, br',
+                    'Accept-Language' => 'en-US,en;q=0.9',
                 ],
                 'allow_redirects' => false,
                 'verify' => false,
-                'curl' => [
-                    CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
-                    CURLOPT_SSL_VERIFYPEER => false,
-                    CURLOPT_SSL_VERIFYHOST => false,
-                    CURLOPT_SSLCERT => false,
-                    CURLOPT_FOLLOWLOCATION => false,
-                    CURLOPT_TIMEOUT => 30,
-                    CURLOPT_CONNECTTIMEOUT => 30,
-                ],
             ]);
 
-            // Rest of the code remains the same...
+            Log::info('ExternalAuthService: Response received', [
+                'status_code' => $response->getStatusCode(),
+                'headers' => $response->getHeaders()
+            ]);
+
+            $cookies = $response->getHeader('Set-Cookie');
+                
+            $this->sessionId = null;
+            foreach ($cookies as $cookie) {
+                if (strpos($cookie, 'DomAuthSessId') !== false) {
+                    preg_match('/DomAuthSessId=([^;]+)/', $cookie, $matches);
+                    if (isset($matches[1])) {
+                        $this->sessionId = $matches[1];
+                        break;
+                    }
+                }
+            }
+
+            if ($this->sessionId) {
+                return $this->postLogin($username, $password);
+            }
+
+            Log::error('ExternalAuthService: Login failed', ['username' => $username]);
+            return null;
+
         } catch (GuzzleException $e) {
             Log::error('ExternalAuthService: Login exception', [
                 'message' => $e->getMessage(),
                 'stack_trace' => $e->getTraceAsString(),
-                'curl_info' => curl_getinfo($e->getHandlerContext()['handle'] ?? null)
+                'request_info' => [
+                    'url' => $this->baseUrl . '/names.nsf?login',
+                    'method' => 'POST',
+                    'headers' => [
+                        'Content-Type' => 'application/x-www-form-urlencoded',
+                    ],
+                    'form_params' => [
+                        'UserName' => $username,
+                        'RedirectTo' => $redirectTo
+                    ]
+                ]
             ]);
 
             error_log('ExternalAuthService: Login exception - ' . $e->getMessage());
@@ -114,20 +144,11 @@ class ExternalAuthService
                     'RedirectTo' => $redirectTo,
                 ],
                 'headers' => [
-                    'User-Agent' => 'Mozilla/5.0',
-                    'Accept' => '*/*',
-                    'Connection' => 'keep-alive',
+                    'Content-Type' => 'application/x-www-form-urlencoded',
+                    'Cookie' => 'DomAuthSessId=' . $this->sessionId,
                 ],
                 'allow_redirects' => true,
                 'verify' => false,
-                'curl' => [
-                    CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
-                    CURLOPT_SSL_VERIFYPEER => false,
-                    CURLOPT_SSL_VERIFYHOST => false,
-                    CURLOPT_SSLCERT => false,
-                    CURLOPT_TIMEOUT => 30,
-                    CURLOPT_CONNECTTIMEOUT => 30,
-                ],
             ]);
 
             $body = $response->getBody()->getContents();
@@ -135,17 +156,18 @@ class ExternalAuthService
 
             if ($this->sessionId && $this->userData) {
                 $this->setSessionAndCookies($username);
-
-                // After successfully setting session and cookies, redirect to the intended URL.
-                return redirect()->intended('/dashboard'); // Or any specific route
+                return redirect()->intended('/dashboard');
             }
 
             return null;
         } catch (GuzzleException $e) {
-            Log::error('Login exception', ['message' => $e->getMessage()]);
-            return null;
-        } catch (\Exception $e) {
-            Log::error('Unexpected error', ['message' => $e->getMessage()]);
+            Log::error('Login exception', [
+                'message' => $e->getMessage(),
+                'request_info' => [
+                    'url' => $this->baseUrl . '/names.nsf?login',
+                    'method' => 'POST'
+                ]
+            ]);
             return null;
         }
     }
