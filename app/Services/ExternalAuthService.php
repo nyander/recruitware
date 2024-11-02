@@ -42,15 +42,21 @@ class ExternalAuthService
         $this->client = new Client([
             'base_uri' => $this->baseUrl,
             'cookies' => $this->cookieJar,
-            'verify' => false, // Only for testing
+            'verify' => false,
             'curl' => [
-                CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
+                CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
+                CURLOPT_SSLVERSION => CURL_SSLVERSION_MAX_DEFAULT,
                 CURLOPT_SSL_VERIFYPEER => false,
                 CURLOPT_SSL_VERIFYHOST => 0,
                 CURLOPT_TIMEOUT => 30,
                 CURLOPT_CONNECTTIMEOUT => 30,
-                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_MAXREDIRS => 3,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_SSL_FALLBACK => true,
             ],
+            'allow_redirects' => true,
+            'http_errors' => false,
+            'debug' => true,
             'headers' => [
                 'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
                 'Accept' => '*/*',
@@ -63,12 +69,11 @@ class ExternalAuthService
     {
         try {
             Log::info('ExternalAuthService: Starting login request', ['username' => $username]);
-            error_log('ExternalAuthService: Starting login request for username: ' . $username);
 
             $rnd = $this->generateRandomString();
             $redirectTo = "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
 
-            $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', [
+            $options = [
                 'form_params' => [
                     'UserName' => $username,
                     'Password' => $password,
@@ -79,9 +84,24 @@ class ExternalAuthService
                     'Accept-Encoding' => 'gzip, deflate, br',
                     'Accept-Language' => 'en-US,en;q=0.9',
                 ],
-                'allow_redirects' => false,
+                'curl' => [
+                    CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
+                    CURLOPT_SSL_FALSESTART => true,
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_SSL_VERIFYHOST => 0,
+                    CURLOPT_SSLVERSION => CURL_SSLVERSION_MAX_DEFAULT,
+                ],
                 'verify' => false,
-            ]);
+                'allow_redirects' => false,
+            ];
+
+            // Use try/catch specifically for the request
+            try {
+                $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', $options);
+            } catch (GuzzleException $e) {
+                Log::error('Request failed', ['error' => $e->getMessage()]);
+                throw $e;
+            }
 
             Log::info('ExternalAuthService: Response received', [
                 'status_code' => $response->getStatusCode(),
@@ -116,7 +136,7 @@ class ExternalAuthService
                     'url' => $this->baseUrl . '/names.nsf?login',
                     'method' => 'POST',
                     'headers' => [
-                        'Content-Type' => 'application/x-www-form-urlencoded',
+                        'Content-Type' => 'application/x-www-form-urlencoded'
                     ],
                     'form_params' => [
                         'UserName' => $username,
@@ -132,45 +152,54 @@ class ExternalAuthService
 
 
     public function postLogin($username, $password)
-    {
-        try {
-            $rnd = $this->generateRandomString();
-            $redirectTo = "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
+{
+    try {
+        $rnd = $this->generateRandomString();
+        $redirectTo = "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
 
-            $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', [
-                'form_params' => [
-                    'UserName' => $username,
-                    'Password' => $password,
-                    'RedirectTo' => $redirectTo,
-                ],
-                'headers' => [
-                    'Content-Type' => 'application/x-www-form-urlencoded',
-                    'Cookie' => 'DomAuthSessId=' . $this->sessionId,
-                ],
-                'allow_redirects' => true,
-                'verify' => false,
-            ]);
+        $options = [
+            'form_params' => [
+                'UserName' => $username,
+                'Password' => $password,
+                'RedirectTo' => $redirectTo,
+            ],
+            'headers' => [
+                'Content-Type' => 'application/x-www-form-urlencoded',
+                'Cookie' => 'DomAuthSessId=' . $this->sessionId,
+            ],
+            'curl' => [
+                CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
+                CURLOPT_SSL_FALSESTART => true,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => 0,
+                CURLOPT_SSLVERSION => CURL_SSLVERSION_MAX_DEFAULT,
+            ],
+            'verify' => false,
+            'allow_redirects' => true,
+        ];
 
-            $body = $response->getBody()->getContents();
-            $this->userData = $this->parseUserData($body);
+        $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', $options);
 
-            if ($this->sessionId && $this->userData) {
-                $this->setSessionAndCookies($username);
-                return redirect()->intended('/dashboard');
-            }
+        $body = $response->getBody()->getContents();
+        $this->userData = $this->parseUserData($body);
 
-            return null;
-        } catch (GuzzleException $e) {
-            Log::error('Login exception', [
-                'message' => $e->getMessage(),
-                'request_info' => [
-                    'url' => $this->baseUrl . '/names.nsf?login',
-                    'method' => 'POST'
-                ]
-            ]);
-            return null;
+        if ($this->sessionId && $this->userData) {
+            $this->setSessionAndCookies($username);
+            return redirect()->intended('/dashboard');
         }
+
+        return null;
+    } catch (GuzzleException $e) {
+        Log::error('Login exception', [
+            'message' => $e->getMessage(),
+            'request_info' => [
+                'url' => $this->baseUrl . '/names.nsf?login',
+                'method' => 'POST'
+            ]
+        ]);
+        return null;
     }
+}
 
 
     protected function parseLoginResponse($response)
