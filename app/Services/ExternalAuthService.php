@@ -36,52 +36,45 @@ class ExternalAuthService
         $this->config = [
             'target_ip' => '31.193.136.171',
             'target_host' => 'www.recruitware.uk',
-            'use_ip' => $isProduction, // Use IP in production, domain in local
-            'protocol' => $isProduction ? 'http' : 'https',
+            'use_ip' => $isProduction,
+            'protocol' => 'http', // Always start with HTTP
             'timeout' => $isProduction ? 30 : 60,
             'connect_timeout' => $isProduction ? 10 : 20,
-            'verify_ssl' => !$isProduction,
+            'verify_ssl' => false,
             'max_redirects' => 5,
             'curl_verbose' => env('CURLOPT_VERBOSE', true),
             'ssl_version' => CURL_SSLVERSION_TLSv1_2,
-            'ssl_cipher_list' => env('CURLOPT_SSL_CIPHER_LIST', 'DEFAULT'),
+            'ssl_cipher_list' => 'DEFAULT@SECLEVEL=1', // Allow less secure ciphers
+            'follow_redirects' => false // Don't automatically follow redirects
         ];
 
-        // Set base URL based on environment
-        if ($isProduction && $this->config['use_ip']) {
-            $this->baseUrl = "{$this->config['protocol']}://{$this->config['target_ip']}";
-        } else {
-            $this->baseUrl = env('EXTERNAL_AUTH_BASE_URL', 'https://www.recruitware.uk');
-        }
+        $this->baseUrl = "http://{$this->config['target_ip']}";
     }
 
     private function initializeClient()
     {
         $this->client = new Client([
-            'verify' => $this->config['verify_ssl'],
+            'verify' => false,
             'timeout' => $this->config['timeout'],
-            'allow_redirects' => [
-                'max' => $this->config['max_redirects'],
-                'strict' => false,
-                'referer' => true,
-                'protocols' => ['http', 'https'],
-                'track_redirects' => true
-            ],
+            'allow_redirects' => false, // Important: handle redirects manually
             'curl' => [
                 CURLOPT_SSLVERSION => $this->config['ssl_version'],
                 CURLOPT_SSL_CIPHER_LIST => $this->config['ssl_cipher_list'],
                 CURLOPT_VERBOSE => $this->config['curl_verbose'],
-                CURLOPT_SSL_VERIFYPEER => $this->config['verify_ssl'],
-                CURLOPT_SSL_VERIFYHOST => $this->config['verify_ssl'] ? 2 : 0,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
                 CURLOPT_TCP_NODELAY => true,
-                CURLOPT_TCP_KEEPALIVE => 1
+                CURLOPT_TCP_KEEPALIVE => 1,
+                CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_MAXREDIRS => 0,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+                // Add these specific options for older SSL compatibility
+                CURLOPT_SSL_OPTIONS => CURLSSLOPT_NO_REVOKE,
+                CURLOPT_SSL_ENABLE_ALPN => false,
+                CURLOPT_SSL_ENABLE_NPN => false
             ]
         ]);
-    }
-
-    private function generateRandomString($length = 10) 
-    {
-        return bin2hex(random_bytes($length));
     }
 
     public function login($username, $password)
@@ -112,36 +105,38 @@ class ExternalAuthService
 
     private function buildRequestOptions($username, $password, $rnd, $debugOutput)
     {
-        $redirectTo = "https://{$this->config['target_host']}/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
-
         return [
             'form_params' => [
                 'UserName' => $username,
                 'Password' => $password,
-                'RedirectTo' => $redirectTo,
+                'RedirectTo' => "http://{$this->config['target_ip']}/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}",
             ],
             'headers' => [
                 'Content-Type' => 'application/x-www-form-urlencoded',
-                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept' => '*/*',
                 'Accept-Encoding' => 'gzip, deflate',
                 'Accept-Language' => 'en-US,en;q=0.9',
                 'Host' => $this->config['target_host'],
-                'Origin' => "https://{$this->config['target_host']}",
-                'Referer' => "https://{$this->config['target_host']}/names.nsf?login",
+                'Origin' => "http://{$this->config['target_ip']}",
+                'Referer' => "http://{$this->config['target_ip']}/names.nsf?login",
+                'Connection' => 'keep-alive',
                 'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             ],
-            'verify' => $this->config['verify_ssl'],
-            'timeout' => $this->config['timeout'],
-            'connect_timeout' => $this->config['connect_timeout'],
             'curl' => [
                 CURLOPT_VERBOSE => true,
                 CURLOPT_STDERR => $debugOutput,
                 CURLINFO_HEADER_OUT => true,
                 CURLOPT_FAILONERROR => false,
                 CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-                CURLOPT_TCP_NODELAY => true
+                CURLOPT_TCP_NODELAY => true,
+                CURLOPT_FOLLOWLOCATION => false
             ]
         ];
+    }
+
+    private function generateRandomString($length = 10) 
+    {
+        return bin2hex(random_bytes($length));
     }
 
     private function executeLoginRequest($options, $debugOutput, $username, $password)
