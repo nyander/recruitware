@@ -63,65 +63,85 @@ class ExternalAuthService
     public function login($username, $password)
     {
         try {
-            $initialBody = null;
-            $finalResponse = null;
-            
-            // Log that the login request is starting
             Log::info('ExternalAuthService: Starting login request', [
                 'username' => $username,
                 'base_url' => $this->baseUrl
             ]);
-    
-            $rnd = $this->generateRandomString();
-            $redirectTo = "{$this->baseUrl}/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
-    
-            $response = $this->client->post('/names.nsf?login', [
+
+            // Initial login request
+            $response = $this->client->post('/names.nsf?Login', [
                 'form_params' => [
                     'UserName' => $username,
                     'Password' => $password,
-                    'RedirectTo' => $redirectTo,
+                    'RedirectTo' => "{$this->baseUrl}/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$this->generateRandomString()}&id={$username}",
+                    '%%ModDate' => time() * 1000
+                ],
+                'headers' => [
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language' => 'en-US,en;q=0.5',
+                    'Accept-Encoding' => 'gzip, deflate, br',
+                    'Connection' => 'keep-alive',
+                    'Host' => 'www.recruitware.uk',
+                    'Pragma' => 'no-cache',
+                    'Cache-Control' => 'no-cache',
+                    'Content-Type' => 'application/x-www-form-urlencoded',
+                    'Origin' => 'http://www.recruitware.uk',
+                    'Referer' => 'http://www.recruitware.uk/names.nsf?Login'
                 ],
                 'allow_redirects' => [
-                    'max'             => 5,
-                    'strict'          => false,
-                    'referer'         => true,
-                    'protocols'       => ['http', 'https'],
+                    'max' => 5,
+                    'strict' => false,
+                    'referer' => true,
+                    'protocols' => ['http', 'https'],
                     'track_redirects' => true
                 ],
                 'timeout' => 30,
-                'connect_timeout' => 30,
-            ]);
-    
-
-            // Log response to Laravel log file
-            Log::info('ExternalAuthService: Response received', [
-                'status_code' => $response->getStatusCode(),
-                'body' => (string) $response->getBody(),
-                'headers' => $response->getHeaders(),
+                'verify' => false
             ]);
 
-            // Log response to the console
-            error_log('ExternalAuthService: Response received');
-            error_log('Status Code: ' . $response->getStatusCode());
-            error_log('Body: ' . $response->getBody());
-            error_log('Headers: ' . json_encode($response->getHeaders()));
+            // Check for successful login
+            $body = (string)$response->getBody();
+            $statusCode = $response->getStatusCode();
+            $headers = $response->getHeaders();
 
-            // Use the final response for getting cookies
-            $cookies = $finalResponse ? $finalResponse->getHeader('Set-Cookie') : $response->getHeader('Set-Cookie');
-            
-            $this->sessionId = null;
-            foreach ($cookies as $cookie) {
-                if (strpos($cookie, 'DomAuthSessId') !== false) {
-                    preg_match('/DomAuthSessId=([^;]+)/', $cookie, $matches);
-                    if (isset($matches[1])) {
-                        $this->sessionId = $matches[1];
-                        break;
-                    }
+            Log::info('ExternalAuthService: Response details', [
+                'status_code' => $statusCode,
+                'headers' => $headers,
+                'body_length' => strlen($body),
+                'cookies' => $this->cookieJar->toArray()
+            ]);
+
+            // Check for DomAuthSessId cookie
+            $authCookie = null;
+            foreach ($this->cookieJar->toArray() as $cookie) {
+                if (strpos($cookie->getName(), 'DomAuthSessId') !== false) {
+                    $authCookie = $cookie;
+                    break;
                 }
             }
 
-            if ($this->sessionId) {
-                return $this->postLogin($username, $password);
+            if (!$authCookie) {
+                Log::error('ExternalAuthService: No auth cookie found after login');
+                return null;
+            }
+
+            // Make a second request to get user data
+            $userDataResponse = $this->client->get("/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$this->generateRandomString()}&id={$username}", [
+                'headers' => [
+                    'Cookie' => "DomAuthSessId={$authCookie->getValue()}",
+                    'Host' => 'www.recruitware.uk'
+                ],
+                'verify' => false
+            ]);
+
+            $userData = $this->parseUserData($userDataResponse->getBody()->getContents());
+            
+            if ($userData) {
+                $this->sessionId = $authCookie->getValue();
+                $this->userData = $userData;
+                $this->setSessionAndCookies($username);
+                return $userData;
             }
 
             Log::error('ExternalAuthService: Login failed', ['username' => $username]);
@@ -132,8 +152,7 @@ class ExternalAuthService
                 'message' => $e->getMessage(),
                 'code' => $e->getCode(),
                 'url' => $this->baseUrl,
-                'curl_info' => $e->getHandlerContext(),
-                'trace' => $e->getTraceAsString()
+                'curl_info' => $e->getHandlerContext()
             ]);
             return null;
         }
