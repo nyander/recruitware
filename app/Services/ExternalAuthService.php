@@ -34,49 +34,64 @@ class ExternalAuthService
     protected $vText;
 
     public function __construct(CandidateService $candidateService)
-    {
-        $this->candidateService = $candidateService;
-        $this->baseUrl = 'https://31.193.136.171'; // Use IP instead of domain
+{
+    $this->candidateService = $candidateService;
+    $this->baseUrl = config('services.external_auth.base_url', 'http://31.193.136.171'); // Change to HTTP
 
-        $this->cookieJar = new CookieJar();
-        $this->client = new Client([
-            'base_uri' => $this->baseUrl,
-            'cookies' => $this->cookieJar,
-            'verify' => false, // Disable SSL verification temporarily
-            'curl' => [
-                CURLOPT_SSL_VERIFYHOST => 0,
-                CURLOPT_SSL_VERIFYPEER => 0,
-                CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2
-            ],
-        ]);
-    }
+    $this->cookieJar = new CookieJar();
+    $this->client = new Client([
+        'base_uri' => $this->baseUrl,
+        'cookies' => $this->cookieJar,
+        'verify' => false,
+        'curl' => [
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_SSL_VERIFYPEER => 0,
+            CURLOPT_SSLVERSION => 6, // Force TLSv1.2
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1', // Lower security level temporarily
+        ],
+        'headers' => [
+            'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36',
+            'Accept' => '*/*',
+            'Connection' => 'keep-alive',
+            'Host' => 'www.recruitware.uk'
+        ],
+        'debug' => true
+    ]);
+}
 
     public function login($username, $password)
     {
         try {
-            // Log that the login request is starting
-            Log::info('ExternalAuthService: Starting login request', ['username' => $username]);
             $initialBody = null;
             $finalResponse = null;
-
-            // Log to console
-            error_log('ExternalAuthService: Starting login request for username: ' . $username);
-
+            
+            // Log that the login request is starting
+            Log::info('ExternalAuthService: Starting login request', [
+                'username' => $username,
+                'base_url' => $this->baseUrl
+            ]);
+    
             $rnd = $this->generateRandomString();
             $redirectTo = "{$this->baseUrl}/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
-
+    
             $response = $this->client->post('/names.nsf?login', [
                 'form_params' => [
                     'UserName' => $username,
                     'Password' => $password,
                     'RedirectTo' => $redirectTo,
                 ],
-                'headers' => [
-                    'User-Agent' => 'Mozilla/5.0',
-                    'Host' => 'www.recruitware.uk', // Add host header
+                'allow_redirects' => [
+                    'max'             => 5,
+                    'strict'          => false,
+                    'referer'         => true,
+                    'protocols'       => ['http', 'https'],
+                    'track_redirects' => true
                 ],
-                'allow_redirects' => false,
+                'timeout' => 30,
+                'connect_timeout' => 30,
             ]);
+    
 
             // Log response to Laravel log file
             Log::info('ExternalAuthService: Response received', [
@@ -117,7 +132,8 @@ class ExternalAuthService
                 'message' => $e->getMessage(),
                 'code' => $e->getCode(),
                 'url' => $this->baseUrl,
-                'curl_info' => $e->getHandlerContext()
+                'curl_info' => $e->getHandlerContext(),
+                'trace' => $e->getTraceAsString()
             ]);
             return null;
         }
