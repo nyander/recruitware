@@ -94,7 +94,8 @@ class ExternalAuthService
                 'headers' => [
                     'Content-Type' => 'application/x-www-form-urlencoded',
                     'Origin' => $this->baseUrl,
-                    'Referer' => "{$this->baseUrl}/names.nsf?Login"
+                    'Referer' => "{$this->baseUrl}/names.nsf?Login",
+                    'Host' => '31.193.136.171'
                 ],
                 'curl' => [
                     CURLOPT_FRESH_CONNECT => true,
@@ -113,11 +114,31 @@ class ExternalAuthService
                 'cookies' => $this->cookieJar->toArray()
             ]);
 
+            // Debug log for cookie structure
+            Log::debug('Cookies after login:', [
+                'raw_cookies' => $this->cookieJar->toArray(),
+                'cookie_structure' => array_map(function($cookie) {
+                    return [
+                        'type' => gettype($cookie),
+                        'properties' => is_object($cookie) ? get_object_vars($cookie) : $cookie
+                    ];
+                }, $this->cookieJar->toArray())
+            ]);
+
             // Check for DomAuthSessId cookie
+            $cookies = $this->cookieJar->toArray();
             $authCookie = null;
-            foreach ($this->cookieJar->toArray() as $cookie) {
-                if (strpos($cookie->getName(), 'DomAuthSessId') !== false) {
-                    $authCookie = $cookie;
+
+            foreach ($cookies as $cookie) {
+                // Check if $cookie is array or object and handle accordingly
+                $cookieName = is_array($cookie) ? $cookie['Name'] : $cookie->getName();
+                $cookieValue = is_array($cookie) ? $cookie['Value'] : $cookie->getValue();
+                
+                if (strpos($cookieName, 'DomAuthSessId') !== false) {
+                    $authCookie = [
+                        'name' => $cookieName,
+                        'value' => $cookieValue
+                    ];
                     break;
                 }
             }
@@ -130,8 +151,8 @@ class ExternalAuthService
             // Make a second request to get user data
             $userDataResponse = $this->client->get("/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$this->generateRandomString()}&id={$username}", [
                 'headers' => [
-                    'Cookie' => "DomAuthSessId={$authCookie->getValue()}",
-                    'Host' => 'www.recruitware.uk'
+                    'Cookie' => "DomAuthSessId={$authCookie['value']}",
+                    'Host' => '31.193.136.171'
                 ],
                 'verify' => false
             ]);
@@ -139,7 +160,7 @@ class ExternalAuthService
             $userData = $this->parseUserData($userDataResponse->getBody()->getContents());
 
             if ($userData) {
-                $this->sessionId = $authCookie->getValue();
+                $this->sessionId = $authCookie['value'];
                 $this->userData = $userData;
                 $this->setSessionAndCookies($username);
                 return $userData;
@@ -231,15 +252,20 @@ class ExternalAuthService
 
     protected function setSessionAndCookies($username)
     {
-        Cookie::queue('RW_AuthID', $this->sessionId, 30);
+        if (is_array($this->sessionId)) {
+            $sessionIdValue = $this->sessionId['value'];
+        } else {
+            $sessionIdValue = $this->sessionId;
+        }
+
+        Cookie::queue('RW_AuthID', $sessionIdValue, 30);
         Cookie::queue('RW_Fldr', $this->userData['ApplicationFolder'] ?? 'demo', 30);
         Cookie::queue('RW_UserID', $username, 30);
 
-        Session::put('authID', $this->sessionId);
+        Session::put('authID', $sessionIdValue);
         Session::put('userName', $username);
         Session::put('userData', $this->userData);
         Session::put('fldr', $this->userData['ApplicationFolder'] ?? 'demo');
-        
 
         $d = strtotime("today");
         if (request()->has('dt')) {
@@ -252,7 +278,18 @@ class ExternalAuthService
         Session::put('weekending', $end);
         Session::put('cookieJar', serialize($this->cookieJar));
 
+        Log::debug('Session and cookies set:', [
+            'session_id' => $sessionIdValue,
+            'username' => $username,
+            'folder' => $this->userData['ApplicationFolder'] ?? 'demo',
+            'cookies_set' => [
+                'RW_AuthID' => $sessionIdValue,
+                'RW_Fldr' => $this->userData['ApplicationFolder'] ?? 'demo',
+                'RW_UserID' => $username
+            ]
+        ]);
     }
+
 
     public function getUserSettings($Ty)
     {
@@ -400,6 +437,11 @@ class ExternalAuthService
                 $userData[] = $line;
             }
         }
+    
+        Log::debug('Parsed user data:', [
+            'data_structure' => array_keys($userData),
+            'data_sample' => array_slice($userData, 0, 5, true)
+        ]);
     
         return $userData;
     }
