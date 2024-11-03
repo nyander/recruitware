@@ -46,14 +46,17 @@ class ExternalAuthService
         'curl' => [
             CURLOPT_SSL_VERIFYHOST => 0,
             CURLOPT_SSL_VERIFYPEER => 0,
-            CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
-            CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
+            CURLOPT_SSLVERSION => CURL_SSLVERSION_MAX_TLSv1_2,  // Changed this
+            CURLOPT_SSL_CIPHER_LIST => 'DEFAULT:!DH',  // Modified cipher list
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_MAXREDIRS => 5,
+            CURLOPT_SSL_FALSESTART => true,  // Added this
+            CURLOPT_TCP_FASTOPEN => true,    // Added this
+            CURLOPT_FORBID_REUSE => true,    // Added this
         ],
         'headers' => [
-            'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',  // Updated User-Agent
             'Accept' => '*/*',
             'Connection' => 'keep-alive',
             'Host' => 'www.recruitware.uk'
@@ -69,7 +72,8 @@ class ExternalAuthService
         'timeout' => 30,
         'debug' => true,
         'decode_content' => true,
-        'http_errors' => false
+        'http_errors' => false,
+        'force_ip_resolve' => 'v4'  // Added this
     ]);
 }
 
