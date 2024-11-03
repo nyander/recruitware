@@ -2,61 +2,41 @@
 
 namespace App\Services;
 
-use App\Http\Controllers\CandidateController;
 use GuzzleHttp\Client;
-use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Cookie;
-use Psy\Readline\Hoa\Console;
 
 class ExternalAuthService
 {
-    protected $client;
-    protected $cookieJar;
+    private $client;
+    private $baseUrl;
+    private $sessionId;
+    private $userData;
+    private const TARGET_IP = '31.193.136.171';
 
-    protected $baseUrl;
-
-    protected $sessionId;
-
-    protected $userData;
-
-    protected $candidateService;
-
-    protected $url;
-
-
-    protected $vSetts;
-
-    protected $vData;
-
-    protected $vText;
-
-    public function __construct(CandidateService $candidateService)
+    public function __construct()
     {
-        $this->candidateService = $candidateService;
-        $this->baseUrl = config('services.external_auth.base_url', 'https://www.recruitware.uk');
-
-        $this->cookieJar = new CookieJar();
         $this->client = new Client([
-            'base_uri' => $this->baseUrl,
-            'cookies' => $this->cookieJar,
-            'verify' => false, // Only for testing
-            'curl' => [
-                CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
-                CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_SSL_VERIFYHOST => 0,
-                CURLOPT_TIMEOUT => 30,
-                CURLOPT_CONNECTTIMEOUT => 30,
-                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            ],
-            'headers' => [
-                'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
-                'Accept' => '*/*',
-                'Connection' => 'keep-alive',
-            ],
+            'verify' => false,
+            'timeout' => 30,
+            'allow_redirects' => [
+                'max' => 5,
+                'strict' => false,
+                'referer' => true,
+                'protocols' => ['http', 'https'],
+                'track_redirects' => true
+            ]
         ]);
+
+        // Use IP address directly with HTTPS
+        $this->baseUrl = 'https://' . self::TARGET_IP;
+    }
+
+    private function generateRandomString($length = 10) 
+    {
+        return bin2hex(random_bytes($length));
     }
 
     public function login($username, $password)
@@ -64,53 +44,49 @@ class ExternalAuthService
         try {
             Log::info('ExternalAuthService: Starting login request', [
                 'username' => $username,
-                'base_url' => $this->baseUrl,
-                'client_config' => [
-                    'ssl_version' => CURL_SSLVERSION_TLSv1_2,
-                    'verify' => false,
-                    'timeout' => 30,
-                ]
+                'base_url' => $this->baseUrl
             ]);
 
             $rnd = $this->generateRandomString();
-            $redirectTo = "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
-
-            // Create a temporary file for CURL debug output
+            
+            // Create debug output file
             $debugOutput = tmpfile();
-            $debugMetadata = stream_get_meta_data($debugOutput);
-            $debugOutputPath = $debugMetadata['uri'];
-
-            // Add debug options to the request
+            
             $options = [
                 'form_params' => [
                     'UserName' => $username,
                     'Password' => $password,
-                    'RedirectTo' => $redirectTo,
+                    'RedirectTo' => "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}",
                 ],
                 'headers' => [
                     'Content-Type' => 'application/x-www-form-urlencoded',
-                    'Accept-Encoding' => 'gzip, deflate, br',
+                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Encoding' => 'gzip, deflate',
                     'Accept-Language' => 'en-US,en;q=0.9',
+                    'Host' => 'www.recruitware.uk',
+                    'Origin' => 'https://www.recruitware.uk',
+                    'Referer' => 'https://www.recruitware.uk/names.nsf?login',
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                 ],
-                'allow_redirects' => false,
                 'verify' => false,
+                'timeout' => 30,
+                'connect_timeout' => 10,
                 'curl' => [
                     CURLOPT_VERBOSE => true,
                     CURLOPT_STDERR => $debugOutput,
                     CURLINFO_HEADER_OUT => true,
-                    CURLOPT_CERTINFO => true
+                    CURLOPT_FAILONERROR => false,
+                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                    CURLOPT_TCP_NODELAY => true,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_MAXREDIRS => 5
                 ]
             ];
 
-            Log::info('ExternalAuthService: Sending request', [
-                'request_options' => $options,
-                'url' => 'https://www.recruitware.uk/names.nsf?login'
-            ]);
-
             try {
-                $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', $options);
+                $response = $this->client->post("http://" . self::TARGET_IP . "/names.nsf?login", $options);
                 
-                // Read the debug output
+                // Read debug output
                 fseek($debugOutput, 0);
                 $curlDebug = fread($debugOutput, 8192);
                 fclose($debugOutput);
@@ -118,32 +94,18 @@ class ExternalAuthService
                 Log::info('ExternalAuthService: Response received', [
                     'status_code' => $response->getStatusCode(),
                     'headers' => $response->getHeaders(),
-                    'curl_debug' => $curlDebug,
-                    'response_body' => (string)$response->getBody()
+                    'curl_debug' => $curlDebug
                 ]);
 
             } catch (GuzzleException $e) {
-                // Read the debug output even on error
                 fseek($debugOutput, 0);
                 $curlDebug = fread($debugOutput, 8192);
                 fclose($debugOutput);
 
-                // Get detailed cURL info if available
-                $handler = $e->getHandlerContext();
-                $curlInfo = [];
-                if (isset($handler['handle']) && is_resource($handler['handle'])) {
-                    $curlInfo = curl_getinfo($handler['handle']);
-                }
-
                 Log::error('ExternalAuthService: Request failed', [
                     'error_message' => $e->getMessage(),
                     'error_code' => $e->getCode(),
-                    'curl_debug' => $curlDebug,
-                    'curl_info' => $curlInfo,
-                    'ssl_ciphers' => openssl_get_cipher_methods(),
-                    'ssl_version' => OPENSSL_VERSION_TEXT,
-                    'curl_version' => curl_version(),
-                    'handler_context' => $handler
+                    'curl_debug' => $curlDebug
                 ]);
 
                 throw $e;
@@ -176,8 +138,7 @@ class ExternalAuthService
             Log::error('ExternalAuthService: Login failed - No session ID', [
                 'cookies_received' => $cookies,
                 'response_status' => $response->getStatusCode(),
-                'response_headers' => $response->getHeaders(),
-                'response_body' => (string)$response->getBody()
+                'response_headers' => $response->getHeaders()
             ]);
             return null;
 
@@ -185,611 +146,168 @@ class ExternalAuthService
             Log::error('ExternalAuthService: Login exception', [
                 'message' => $e->getMessage(),
                 'code' => $e->getCode(),
-                'stack_trace' => $e->getTraceAsString(),
-                'request_info' => [
-                    'url' => $this->baseUrl . '/names.nsf?login',
-                    'method' => 'POST',
-                    'headers' => [
-                        'Content-Type' => 'application/x-www-form-urlencoded',
-                    ],
-                    'form_params' => [
-                        'UserName' => $username,
-                        'RedirectTo' => $redirectTo
-                    ]
-                ],
-                'ssl_info' => [
-                    'openssl_version' => OPENSSL_VERSION_TEXT,
-                    'curl_version' => curl_version(),
-                    'available_ciphers' => openssl_get_cipher_methods(),
-                ]
+                'stack_trace' => $e->getTraceAsString()
             ]);
 
             return null;
         }
     }
 
-
     public function postLogin($username, $password)
-{
-    try {
-        $rnd = $this->generateRandomString();
-        $redirectTo = "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
-
-        // Create debug output file
-        $debugOutput = tmpfile();
-        $debugMetadata = stream_get_meta_data($debugOutput);
-
-        $options = [
-            'form_params' => [
-                'UserName' => $username,
-                'Password' => $password,
-                'RedirectTo' => $redirectTo,
-            ],
-            'headers' => [
-                'Content-Type' => 'application/x-www-form-urlencoded',
-                'Cookie' => 'DomAuthSessId=' . $this->sessionId,
-            ],
-            'allow_redirects' => true,
-            'verify' => false,
-            'curl' => [
-                CURLOPT_VERBOSE => true,
-                CURLOPT_STDERR => $debugOutput,
-                CURLINFO_HEADER_OUT => true,
-                CURLOPT_CERTINFO => true
-            ]
-        ];
-
-        Log::info('ExternalAuthService: Sending postLogin request', [
-            'session_id' => $this->sessionId,
-            'request_options' => array_diff_key($options, ['form_params' => true])
-        ]);
-
-        $response = $this->client->post('https://www.recruitware.uk/names.nsf?login', $options);
-
-        // Read debug output
-        fseek($debugOutput, 0);
-        $curlDebug = fread($debugOutput, 8192);
-        fclose($debugOutput);
-
-        $body = $response->getBody()->getContents();
-        
-        Log::info('ExternalAuthService: PostLogin response received', [
-            'status_code' => $response->getStatusCode(),
-            'headers' => $response->getHeaders(),
-            'curl_debug' => $curlDebug,
-            'body_length' => strlen($body)
-        ]);
-
-        $this->userData = $this->parseUserData($body);
-
-        if ($this->sessionId && $this->userData) {
-            Log::info('ExternalAuthService: PostLogin successful', [
-                'user_data_keys' => array_keys($this->userData)
-            ]);
-            $this->setSessionAndCookies($username);
-            return redirect()->intended('/dashboard');
-        }
-
-        Log::error('ExternalAuthService: PostLogin failed - Invalid response data', [
-            'has_session_id' => !empty($this->sessionId),
-            'has_user_data' => !empty($this->userData),
-            'response_status' => $response->getStatusCode(),
-            'response_headers' => $response->getHeaders(),
-            'body_excerpt' => substr($body, 0, 500) // First 500 chars of response
-        ]);
-
-        return null;
-    } catch (GuzzleException $e) {
-        Log::error('ExternalAuthService: PostLogin exception', [
-            'message' => $e->getMessage(),
-            'code' => $e->getCode(),
-            'stack_trace' => $e->getTraceAsString(),
-            'request_info' => [
-                'url' => $this->baseUrl . '/names.nsf?login',
-                'method' => 'POST',
-                'session_id' => $this->sessionId,
-            ],
-            'handler_context' => method_exists($e, 'getHandlerContext') ? $e->getHandlerContext() : null
-        ]);
-        return null;
-    }
-}
-
-
-    protected function parseLoginResponse($response)
-    {
-        $user = [];
-        $arrel = explode('~END~', $response);
-        $i1 = 0;
-        $ck = '';
-
-        foreach ($arrel as $val) {
-            if ($i1 > 0) {
-                $a1 = preg_split('/\|/', $val);
-                $user[trim($a1[0])] = trim(join('|', array_slice($a1, 1)));
-            } else {
-                $a1 = preg_split('/DomAuthSessId=/', $val);
-                if (count($a1) > 1) {
-                    $a1 = preg_split('/;/', $a1[1]);
-                    $ck = 'DomAuthSessId=' . $a1[0];
-                }
-            }
-            $i1++;
-        }
-
-        if (!empty($ck)) {
-            Session::put('authID', $ck);
-            $user['session_cookie'] = $ck;
-        }
-
-        return $user;
-    }
-
-    protected function setSessionAndCookies($username)
-    {
-        Cookie::queue('RW_AuthID', $this->sessionId, 30);
-        Cookie::queue('RW_Fldr', $this->userData['ApplicationFolder'] ?? 'demo', 30);
-        Cookie::queue('RW_UserID', $username, 30);
-
-        Session::put('authID', $this->sessionId);
-        Session::put('userName', $username);
-        Session::put('userData', $this->userData);
-        Session::put('fldr', $this->userData['ApplicationFolder'] ?? 'demo');
-        
-
-        $d = strtotime("today");
-        if (request()->has('dt')) {
-            $d = strtotime(str_replace('/', '-', request()->input('dt')));
-        }
-        Session::put('navdate', date("d/m/Y", $d));
-
-        $end_week = strtotime("next saturday", $d);
-        $end = date("d/m/Y", $end_week);
-        Session::put('weekending', $end);
-        Session::put('cookieJar', serialize($this->cookieJar));
-
-    }
-
-    public function getUserSettings($Ty)
-    {
-        
-        $applicationFolder = $this->userData['ApplicationFolder'] ?? Session::get('userData')['ApplicationFolder'];
-        $userName = $this->userData['UserName'] ?? Session::get('userData')['UserName'];
-
-        $url = $this->baseUrl .'//'.$applicationFolder . '/profiles.nsf/ag.getprsetts?openagent&' . $this->generateRandomString() .  '|' . $userName . '|' . $Ty;
-        $args = [
-            'url' => $url,
-            'data-type' => 'Settings',
-            'return-type' => 'Fields',
-        ];
-        // dd($url);
-
-        
-
-
-        $this->url = $url;
-        $this->getDataUrl($args);
-    }
-
-    public function getDataUrl($args)
-    {
-        
-        $sessionId = $this->sessionId ?? session('authID');
-        $applicationFolder = $this->userData['ApplicationFolder'] ?? Session::get('userData')['ApplicationFolder'];
-        $ck = "DomAuthSessId=".$sessionId;
-        $url = $args['url'];
-        $url = preg_replace('/\[FLDR\]/', $applicationFolder, $args['url']);
-        $url = preg_replace('/\[RND\]/', $this->generateRandomString(), $url);
-        $getValue = isset($args['is-post']) ? 'POST' : 'GET';
-        $data = isset($args['data']) ? $args['data'] : '';
-
-        
-    
-
-        
-        // dd(session('cookieJar'));
-        
-        
-        // $data = preg_replace('/\[WKEND\]/', Session::get('weekending'), $data); -> weekend is usually sunday of the week
-        // $data = preg_replace('/\[NAVDATE\]/', Session::get('navdate'), $data);
-        $response = $this->client->request( $getValue,$url, [
-            'headers' => [
-                'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/32.0.1700.107 Chrome/32.0.1700.107 Safari/537.36',
-                'Cookie' => $ck,
-            ], 'body' =>  $data,
-            
-        ]);
-    
-        Log::info('Cookies sent with request:', ['cookies' => Session::get('cookieJar')]);
-        $resp = $response->getBody()->getContents();
-
-
-
-        $resp1 = str_replace("\n", '',$resp);
-        $resp2 = str_replace("~END~~END~", '~END~',$resp1);
-		$arrel = explode('~END~',$resp2);
-        
-        $i1 = 0;
-        $rList = [];
-
-        
-        if ($args['return-type'] == 'View') {
-            
-            $rList = preg_split('/;/', $args['return-list']);
-        }
-
-        
-        $this->vData = [];
-
-       if ($args['return-type'] == 'Text'){
-            $variableTest = $resp2;
-            $this->vText = $variableTest;
-        }
-
-        
-        
-        foreach ($arrel as $val) {
-            if ($i1 > 0) {
-                // dd($val);
-                if ($args['return-type'] == 'View') {
-                    
-                    $a1 = preg_split('/\|/', $val);
-                    if (count($a1) > 2) {
-                        $docId = $a1[count($a1) - 1];
-                        $this->vData[$docId] = array_combine(array_map('trim', $rList), $a1);
-                        $this->vData[$docId]['DocID'] = $docId;
-                    }
-                } elseif ($args['return-type'] == 'Fields') {
-                    if (strpos($val, '#@#') > 1) {
-                        $a1 = preg_split('/#@#/', $val);
-                        if ($args['data-type'] == 'Settings') {
-                            $this->vSetts[$a1[0]] = $a1[1];
-                        } else {
-                            $this->vData[$a1[0]] = $a1[1];
-                        }
-                    }
-                } elseif ($args['return-type'] == 'Doc') {
-                    if (strpos($val, '|') > 1) {
-                        $a1 = preg_split('/\|/', $val);
-                        $this->vData[strtolower($a1[0])] = $a1[1];
-                    }
-                }
-                    
-            }
-            $i1++;
-        }
-
-
-        return $this->vData;
-        
-    }
-
-    protected function generateRandomString($length = 10)
-    {
-        return substr(str_shuffle(md5(microtime())), 0, $length);
-    }
-
-    private function parseUserData($content) {
-        $lines = explode("~END~", $content);
-        $userData = [];
-    
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if (empty($line)) continue;
-    
-            // Check if the line contains a '|' character
-            if (strpos($line, '|') !== false) {
-                list($key, $value) = explode('|', $line, 2);
-                $key = trim($key);
-                $value = trim($value);
-    
-                if (strpos($value, ';') !== false && strpos($key, '_Access') !== false) {
-                    // This is an _Access field with multiple values
-                    $userData[$key] = explode(';', $value);
-                    // Trim each value in the array
-                    $userData[$key] = array_map('trim', $userData[$key]);
-                } else {
-                    $userData[$key] = $value;
-                }
-            } else {
-                // If there's no '|', treat the whole line as a value with a numeric key
-                $userData[] = $line;
-            }
-        }
-    
-        return $userData;
-    }
-
-    public function getMenuData()
-    {
-        $userData = Session::get('userData');
-        if (!$userData || !isset($userData['menuopts'])) {
-            Log::warning('Menu options not found in session', [
-                'userData_exists' => !empty($userData),
-                'session_id' => Session::getId()
-            ]);
-            return [];
-        }
-        
-        return $this->parseMenuOptions($userData['menuopts']);
-    }
-
-    public function collectionFormSettings($content)
-    {
-        // Temporary debug output
-        Log::info('collectionFormSettings called with content: ' . $content);
-
-        $ty = $content;
-        $url = 'https://www.recruitware.uk/[FLDR]/candidates.nsf/ag.searchdata?openagent&[RND]';
-        $colLs = preg_split('/\;/', 'Candidate Ref;Full Name;Email;Shift Pattern;Location;First Name;Last Name;Job Type;Phone;Assessed;Date Of Birth;Branch;Avail Window;Classification;County;ID');
-        $qry = '(Form="Candidate") & (RegStatus="Completed")|0~FirstName;1~LastName;2~Email;3~Mobile;4~UnitName;5~AvailDays;6~EarliestStart;7~LatestStart;8~ClientName;9~AssessedClients;10~DateOfBirth;11~CandidateRef;12~Classification;13~Town;14~County;15~CandidatePack;16~JobType';
-        $ret = 'First Name;Last Name;Email;Phone;Branch;Shift Pattern;Earliest Start;Latest Start;Location;Assessed;Date Of Birth;Candidate Ref;Classification;Town;County;Pack;Job Type;DocID';
-
-        $this->getUserSettings($content);
-
-        if (isset($this->vSetts['url'])) {
-            $url = $this->vSetts['url'];
-        }
-
-        $v1 = [
-            'url' => $url,
-            'is-post' => '0',
-            'return-type' => 'Doc',
-        ];
-
-        $this->getDataUrl($v1);
-
-        // Check if $content includes "Form"
-        if (strpos($content, 'Form') !== false) {
-            $structuredData = [
-                'tabs_Sections' => $this->structureFormData(),
-                'data' => $this->vData,
-                'saveURL' => $this->vSetts['SaveUrl'] ?? '',
-                'saveData' => $this->vSetts['SaveData']?? '',
-                'buttons' => $this->vSetts['Buttons']?? '',
-                'popups' => $this->vSetts['Popups']?? '',
-            ];
-
-
-        } else {
-            $structuredData = [
-                'columns' => $colLs,
-                'data' => $this->vData,
-                'menu' => $this->getMenuData(),
-                'sets' => $this->structureFormFields($this->vSetts),
-            ];
-        }
-
-        return $structuredData;
-    }
-
-    public function collectionUserSettings($content){
-        //DEFAULT URL
-        $ty=$content;
-        $url='https://www.recruitware.uk/[FLDR]/candidates.nsf/ag.searchdata?openagent&[RND]';
-        $colLs=preg_split('/\;/','Candidate Ref;Full Name;Email;Shift Pattern;Location;First Name;Last Name;Job Type;Phone;Assessed;Date Of Birth;Branch;Avail Window;Classification;County;ID');
-        $qry='(Form="Candidate") & (RegStatus="Completed")|0~FirstName;1~LastName;2~Email;3~Mobile;4~UnitName;5~AvailDays;6~EarliestStart;7~LatestStart;8~ClientName;9~AssessedClients;10~DateOfBirth;11~CandidateRef;12~Classification;13~Town;14~County;15~CandidatePack;16~JobType';
-        $ret='First Name;Last Name;Email;Phone;Branch;Shift Pattern;Earliest Start;Latest Start;Location;Assessed;Date Of Birth;Candidate Ref;Classification;Town;County;Pack;Job Type;DocID';
- 
-        $this->getUserSettings($content);
-
-
-        if (isset($this->vSetts['url'])){
-            $url=$this->vSetts['url'];
-            $colLs=preg_split('/\;/',$this->vSetts['labels']); // not needed on getFormSettings
-            
-            $qry=$this->vSetts['query']; // not needed on getFormSettings
-            $ret=$this->vSetts['return-list']; // do not need on getFormSettings
-            //echo "Settign query to " . $qry;
-            }else{
-            //echo "****NO SETTS***";
-        }
-        $v1=array();
-        $v1['url']=$url;
-        $v1['is-post']='1'; // Change this to 0 on getFormSettings
-        $v1['return-type']='View'; // 'Doc' for getFormSettings'
-        $v1['data']=$qry; // do not need on getFormSettings
-        $v1['return-list']=$ret; // not needed on getFormSettings
-        // dd($content, $v1);
-        $this->getDataUrl($v1);
-        
-        $structuredData = [
-            'columns' => $colLs,
-            'data' => $this->vData,
-            'menu' => $this->getMenuData(),
-            'vsetts'=> $this->vSetts,
-        ];
-
-        //vData is where we contian all the information required on the getFormSettings
-
-        return $structuredData;
-        
-        //loadColTemplates($ty);
-    }
-
-    public function updateCandidate($saveUrl, $saveDataChanges){
-        //DEFAULT URL
-        // dd($saveUrl, $saveDataChanges);
-        
-        $v1=array();
-        $v1['url']=$saveUrl;
-        $v1['is-post']='1'; // Change this to 0 on getFormSettings
-        $v1['return-type']='Text'; // 'Doc' for getFormSettings'
-        $v1['data']=$saveDataChanges;
-
-        // dd("calling updateCandidate" , $content, $v1);
-        // dd($content, $v1);
-        $this->getDataUrl($v1);
-        
-        // dd($this->vText);
-        // $structuredData = [
-        //     // 'columns' => $colLs,
-        //     'data' => $this->vData,
-        //     'menu' => $this->getMenuData(),
-        //     'vsetts'=> $this->vSetts,
-        // ];
-
-        //vData is where we contian all the information required on the getFormSettings
-
-        // return $structuredData;
-        
-        //loadColTemplates($ty);
-    }
-
-
-
-    function parseMenuOptions($menuOptionsString) {
-        $categories = explode('$$', $menuOptionsString);
-        $result = [];
-    
-        foreach ($categories as $category) {
-            $items = explode(';', $category);
-            $mainMenu = '';
-            $subMenu = [];
-    
-            foreach ($items as $index => $item) {
-                $parts = explode('~', $item);
-    
-                if ($index === 0 && strpos($parts[0], '@') !== false) {
-                    // This is a main menu item
-                    list($mainMenu, $firstSubmenuItem) = explode('@', $parts[0], 2);
-                    $parts[0] = $firstSubmenuItem; // Replace with the actual submenu item name
-                }
-    
-                if (count($parts) >= 3) {
-                    $subMenu[] = [
-                        'index' => (int)$parts[2], // Use the provided index
-                        'name' => $parts[0],
-                        'call' => $parts[1]
-                    ];
-                }
-            }
-    
-            if ($mainMenu) {
-                $result[] = [
-                    'name' => $mainMenu,
-                    'submenu' => $subMenu
-                ];
-            } else {
-                // If there's no main menu, add submenu items directly to the result
-                $result = array_merge($result, $subMenu);
-            }
-        }
-    
-        return $result;
-    }
-// ExternalAuthService.php
-    public function logout()
     {
         try {
-            Log::info('External service logout started');
-            
-            // Clear internal state
-            $this->sessionId = null;
-            $this->userData = null;
-            Session::flush();
+            $rnd = $this->generateRandomString();
+            $redirectTo = "https://www.recruitware.uk/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
 
-            // Create cookie forge responses
-            $cookies = [
-                Cookie::forget('laravel_session'),
-                Cookie::forget('XSRF-TOKEN'),
-                Cookie::forget('RW_AuthID'),
-                Cookie::forget('RW_UserID'),
-                Cookie::forget('RW_Fldr')
+            // Create debug output file
+            $debugOutput = tmpfile();
+            
+            $options = [
+                'form_params' => [
+                    'UserName' => $username,
+                    'Password' => $password,
+                    'RedirectTo' => $redirectTo,
+                ],
+                'headers' => [
+                    'Content-Type' => 'application/x-www-form-urlencoded',
+                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Encoding' => 'gzip, deflate',
+                    'Accept-Language' => 'en-US,en;q=0.9',
+                    'Host' => 'www.recruitware.uk',
+                    'Origin' => 'https://www.recruitware.uk',
+                    'Referer' => 'https://www.recruitware.uk/names.nsf?login',
+                    'Cookie' => 'DomAuthSessId=' . $this->sessionId,
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                ],
+                'verify' => false,
+                'timeout' => 30,
+                'connect_timeout' => 10,
+                'curl' => [
+                    CURLOPT_VERBOSE => true,
+                    CURLOPT_STDERR => $debugOutput,
+                    CURLINFO_HEADER_OUT => true,
+                    CURLOPT_FAILONERROR => false,
+                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                    CURLOPT_TCP_NODELAY => true,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_MAXREDIRS => 5
+                ]
             ];
 
-            // Clear cookie jar
-            $this->cookieJar = new CookieJar();
-            Log::info('CookieJar cleared', ['cookieJar' => $this->cookieJar]);
-            
-            // If there's a logout endpoint on the external service, call it
-            // Example: $this->client->post('external/logout/endpoint');
-            
-            Log::info('External service logout completed successfully');
-            
-            return true;
-        } catch (\Exception $e) {
-            Log::error('External service logout failed', [
-                'error' => $e->getMessage()
+            Log::info('ExternalAuthService: Sending postLogin request', [
+                'session_id' => $this->sessionId,
+                'request_url' => "http://" . self::TARGET_IP . "/names.nsf?login"
             ]);
-            throw $e;
+
+            try {
+                $response = $this->client->post("http://" . self::TARGET_IP . "/names.nsf?login", $options);
+                
+                // Read debug output
+                fseek($debugOutput, 0);
+                $curlDebug = fread($debugOutput, 8192);
+                fclose($debugOutput);
+
+                $body = $response->getBody()->getContents();
+
+                Log::info('ExternalAuthService: PostLogin response received', [
+                    'status_code' => $response->getStatusCode(),
+                    'headers' => $response->getHeaders(),
+                    'curl_debug' => $curlDebug,
+                    'body_length' => strlen($body)
+                ]);
+
+                $this->userData = $this->parseUserData($body);
+
+                if ($this->sessionId && $this->userData) {
+                    Log::info('ExternalAuthService: PostLogin successful', [
+                        'user_data_keys' => array_keys($this->userData)
+                    ]);
+
+                    $this->setSessionAndCookies($username);
+                    return redirect()->intended('/dashboard');
+                }
+
+            } catch (GuzzleException $e) {
+                fseek($debugOutput, 0);
+                $curlDebug = fread($debugOutput, 8192);
+                fclose($debugOutput);
+
+                Log::error('ExternalAuthService: PostLogin request failed', [
+                    'error_message' => $e->getMessage(),
+                    'error_code' => $e->getCode(),
+                    'curl_debug' => $curlDebug
+                ]);
+
+                throw $e;
+            }
+
+            Log::error('ExternalAuthService: PostLogin failed - Invalid response data', [
+                'has_session_id' => !empty($this->sessionId),
+                'has_user_data' => !empty($this->userData),
+                'response_status' => $response->getStatusCode(),
+                'response_headers' => $response->getHeaders(),
+                'body_excerpt' => substr($body, 0, 500)
+            ]);
+
+            return null;
+
+        } catch (GuzzleException $e) {
+            Log::error('ExternalAuthService: PostLogin exception', [
+                'message' => $e->getMessage(),
+                'code' => $e->getCode(),
+                'stack_trace' => $e->getTraceAsString()
+            ]);
+
+            return null;
         }
     }
 
-
-
-
-    public function structureFormData()
+    private function parseUserData($html)
     {
-        $structuredData = [];
-
-        if (!isset($this->vSetts['Tabs'])) {
-            return $structuredData;
-        }
-
-        $tabs = explode('@@', $this->vSetts['Tabs']);
-
-        foreach ($tabs as $tab) {
-            list($tabName, $sectionIds) = explode('~', $tab);
-            $tabData = [
-                'label' => $tabName,
-                'sections' => []
-            ];
-
-            $sectionIds = explode(';', $sectionIds);
-            foreach ($sectionIds as $sectionId) {
-                if (isset($this->vSetts[$sectionId])) {
-                    list($sectionLabel, $columns, $fields) = explode('~', $this->vSetts[$sectionId]);
-                    $tabData['sections'][$sectionId] = [
-                        'label' => $sectionLabel,
-                        'columns' => intval($columns),
-                        'fields' => explode(';', $fields)
-                    ];
-                }
+        try {
+            // Extract user data from HTML response
+            $userData = [];
+            
+            // Add your parsing logic here based on the HTML structure
+            // This is a placeholder - implement according to your HTML structure
+            if (preg_match('/userdata=(.*?)&/i', $html, $matches)) {
+                $userData['data'] = $matches[1];
             }
 
-            $structuredData[] = $tabData;
-        }
+            Log::info('ExternalAuthService: Parsed user data', [
+                'data_found' => !empty($userData)
+            ]);
 
-        return $structuredData;
+            return $userData;
+        } catch (\Exception $e) {
+            Log::error('ExternalAuthService: Error parsing user data', [
+                'message' => $e->getMessage(),
+                'html_excerpt' => substr($html, 0, 500)
+            ]);
+            return null;
+        }
     }
 
-    public function structureFormFields(array $formFields)
+    private function setSessionAndCookies($username)
     {
-        $structuredFields = [];
-
-        foreach ($formFields as $fieldName => $fieldInfo) {
-            // Check if $fieldInfo is an array
-            if (is_array($fieldInfo)) {
-                // If it's already an array, use it directly
-                $structuredFields[$fieldName] = $fieldInfo;
-            } else {
-                // If it's a string, process it as before
-                $parts = explode(';', $fieldInfo);
-                $label = $parts[0] ?? $fieldName;
-                $type = $parts[1] ?? 'Text';
-                $options = [];
-
-                if ($type === 'Select' && isset($parts[2])) {
-                    $optionPairs = explode('@@', $parts[2]);
-                    foreach ($optionPairs as $pair) {
-                        $pairParts = explode('|', $pair);
-                        if (count($pairParts) === 2) {
-                            $options[] = ['value' => $pairParts[0], 'label' => $pairParts[1]];
-                        } else {
-                            $options[] = ['value' => $pair, 'label' => $pair];
-                        }
-                    }
-                }
-
-                $structuredFields[$fieldName] = [
-                    'label' => $label,
-                    'type' => $type,
-                    'options' => $options,
-                ];
-            }
+        try {
+            // Set session data
+            Session::put('authID', $this->sessionId);
+            Session::put('userName', $username);
+            Session::put('userData', $this->userData);
+            
+            // Set cookies
+            Cookie::queue('RW_AuthID', $this->sessionId, 60);
+            Cookie::queue('RW_UserID', $username, 60);
+            
+            Log::info('ExternalAuthService: Session and cookies set', [
+                'username' => $username,
+                'session_id' => $this->sessionId
+            ]);
+        } catch (\Exception $e) {
+            Log::error('ExternalAuthService: Error setting session/cookies', [
+                'message' => $e->getMessage()
+            ]);
         }
-
-        return $structuredFields;
     }
 }
