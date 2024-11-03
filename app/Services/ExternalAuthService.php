@@ -36,7 +36,7 @@ class ExternalAuthService
     public function __construct(CandidateService $candidateService)
 {
     $this->candidateService = $candidateService;
-    $this->baseUrl = config('services.external_auth.base_url', 'http://31.193.136.171'); // Change to HTTP
+    $this->baseUrl = 'http://31.193.136.171'; // Back to using IP address
 
     $this->cookieJar = new CookieJar();
     $this->client = new Client([
@@ -46,17 +46,30 @@ class ExternalAuthService
         'curl' => [
             CURLOPT_SSL_VERIFYHOST => 0,
             CURLOPT_SSL_VERIFYPEER => 0,
-            CURLOPT_SSLVERSION => 6, // Force TLSv1.2
+            CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
+            CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1', // Lower security level temporarily
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_MAXREDIRS => 5,
         ],
         'headers' => [
-            'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36',
+            'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
             'Accept' => '*/*',
             'Connection' => 'keep-alive',
             'Host' => 'www.recruitware.uk'
         ],
-        'debug' => true
+        'allow_redirects' => [
+            'max' => 5,
+            'strict' => false,
+            'referer' => true,
+            'protocols' => ['http', 'https'],
+            'track_redirects' => true
+        ],
+        'connect_timeout' => 30,
+        'timeout' => 30,
+        'debug' => true,
+        'decode_content' => true,
+        'http_errors' => false
     ]);
 }
 
@@ -68,47 +81,35 @@ class ExternalAuthService
                 'base_url' => $this->baseUrl
             ]);
 
-            // Initial login request
-            $response = $this->client->post('/names.nsf?Login', [
+            $rnd = $this->generateRandomString();
+            $redirectTo = "{$this->baseUrl}/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$rnd}&id={$username}";
+
+            $options = [
                 'form_params' => [
                     'UserName' => $username,
                     'Password' => $password,
-                    'RedirectTo' => "{$this->baseUrl}/tech/sysadmin.nsf/ag.getdocdetail?openagent&{$this->generateRandomString()}&id={$username}",
+                    'RedirectTo' => $redirectTo,
                     '%%ModDate' => time() * 1000
                 ],
                 'headers' => [
-                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                    'Accept-Language' => 'en-US,en;q=0.5',
-                    'Accept-Encoding' => 'gzip, deflate, br',
-                    'Connection' => 'keep-alive',
-                    'Host' => 'www.recruitware.uk',
-                    'Pragma' => 'no-cache',
-                    'Cache-Control' => 'no-cache',
                     'Content-Type' => 'application/x-www-form-urlencoded',
-                    'Origin' => 'http://www.recruitware.uk',
-                    'Referer' => 'http://www.recruitware.uk/names.nsf?Login'
+                    'Origin' => $this->baseUrl,
+                    'Referer' => "{$this->baseUrl}/names.nsf?Login"
                 ],
-                'allow_redirects' => [
-                    'max' => 5,
-                    'strict' => false,
-                    'referer' => true,
-                    'protocols' => ['http', 'https'],
-                    'track_redirects' => true
+                'curl' => [
+                    CURLOPT_FRESH_CONNECT => true,
+                    CURLOPT_TCP_NODELAY => true,
                 ],
-                'timeout' => 30,
-                'verify' => false
-            ]);
+            ];
 
-            // Check for successful login
-            $body = (string)$response->getBody();
+            $response = $this->client->post('/names.nsf?Login', $options);
+            $responseBody = (string)$response->getBody();
             $statusCode = $response->getStatusCode();
-            $headers = $response->getHeaders();
 
-            Log::info('ExternalAuthService: Response details', [
+            Log::debug('Login Response', [
                 'status_code' => $statusCode,
-                'headers' => $headers,
-                'body_length' => strlen($body),
+                'headers' => $response->getHeaders(),
+                'body' => substr($responseBody, 0, 1000), // Log first 1000 chars
                 'cookies' => $this->cookieJar->toArray()
             ]);
 
@@ -136,7 +137,7 @@ class ExternalAuthService
             ]);
 
             $userData = $this->parseUserData($userDataResponse->getBody()->getContents());
-            
+
             if ($userData) {
                 $this->sessionId = $authCookie->getValue();
                 $this->userData = $userData;
@@ -152,7 +153,8 @@ class ExternalAuthService
                 'message' => $e->getMessage(),
                 'code' => $e->getCode(),
                 'url' => $this->baseUrl,
-                'curl_info' => $e->getHandlerContext()
+                'curl_info' => isset($e->getHandlerContext()['errno']) ? $e->getHandlerContext() : null,
+                'trace' => $e->getTraceAsString()
             ]);
             return null;
         }
