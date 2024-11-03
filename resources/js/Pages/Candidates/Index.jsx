@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import Table from '@/Components/Charts/Table';
 import { Head } from '@inertiajs/react';
-import { useCallback } from 'react';
-import CandidateFormModal from '../Components/CandidateFormModal';
+import Table from '@/Components/Charts/Table';
 
 const Index = ({ auth, candidates, status, columns, menu }) => {
 

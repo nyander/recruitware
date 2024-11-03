@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Head } from '@inertiajs/react';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import CandidateForm from '@/Components/CandidateForm';
 import CandidateButtonPopup from '@/Components/CandidateButtonPopup';
 
-const Edit = ({ auth, formSettings, formFields = {}, errors,menu }) => {
+const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
     const [activeTab, setActiveTab] = useState('');
     const [initialFormValues, setInitialFormValues] = useState({});
     const [currentFormValues, setCurrentFormValues] = useState({});
@@ -44,47 +44,131 @@ const Edit = ({ auth, formSettings, formFields = {}, errors,menu }) => {
         }
     }, [formSettings]);
 
+    const evaluateCondition = (condition, data) => {
+        if (!condition) {
+            console.log('No condition specified, defaulting to true');
+            return true;
+        }
+    
+        // Remove any parentheses and trim
+        const cleanCondition = condition.replace(/[()]/g, '').trim();
+        console.log('Evaluating condition:', cleanCondition);
+        console.log('Current data:', data);
+    
+        // Handle AND conditions
+        if (cleanCondition.includes('AND')) {
+            const conditions = cleanCondition.split('AND');
+            console.log('AND conditions:', conditions);
+            return conditions.every(cond => {
+                const result = evaluateCondition(cond.trim(), data);
+                console.log(`AND sub-condition "${cond.trim()}" result:`, result);
+                return result;
+            });
+        }
+    
+        // Handle OR conditions
+        if (cleanCondition.includes('OR')) {
+            const conditions = cleanCondition.split('OR');
+            console.log('OR conditions:', conditions);
+            return conditions.some(cond => {
+                const result = evaluateCondition(cond.trim(), data);
+                console.log(`OR sub-condition "${cond.trim()}" result:`, result);
+                return result;
+            });
+        }
+    
+        // Handle != comparison
+        if (cleanCondition.includes('!=')) {
+            const [field, expectedValue] = cleanCondition.split('!=').map(s => s.trim());
+            const actualValue = data[field.toLowerCase()];
+            console.log(`Comparing ${field}:`, {
+                'Field (lowercase)': field.toLowerCase(),
+                'Actual Value': actualValue,
+                'Expected Value': expectedValue,
+                'Comparison Type': '!=',
+            });
+            const result = actualValue !== expectedValue;
+            console.log(`!= comparison result:`, result);
+            return result;
+        }
+    
+        // Handle = comparison
+        if (cleanCondition.includes('=')) {
+            const [field, expectedValue] = cleanCondition.split('=').map(s => s.trim());
+            const actualValue = data[field.toLowerCase()];
+            console.log(`Comparing ${field}:`, {
+                'Field (lowercase)': field.toLowerCase(),
+                'Actual Value': actualValue,
+                'Expected Value': expectedValue,
+                'Comparison Type': '=',
+            });
+            const result = actualValue === expectedValue;
+            console.log(`= comparison result:`, result);
+            return result;
+        }
+    
+        console.log('No comparison operators found, defaulting to true');
+        return true;
+    };
+
     const parseButtonsAndPopups = (buttonString, popupString) => {
-        const buttons = buttonString.split('@@').map(buttonStr => {
+        console.log('\n==== Starting Button Parsing and Visibility Evaluation ====\n');
+        
+        const buttons = buttonString.split('@@').map((buttonStr, index) => {
+            console.log(`\n--- Processing Button ${index + 1} ---`);
+            
             const [name, icon, popupId, condition] = buttonStr.split(';');
+            console.log('Button Details:', {
+                Name: name,
+                Icon: icon,
+                PopupId: popupId,
+                Condition: condition
+            });
+    
+            console.log('\nRelevant User/Candidate Data:', {
+                Status: formSettings.data.status,
+                RegStatus: formSettings.data.regstatus,
+                // Add other relevant fields here
+                ...formSettings.data
+            });
+    
+            const isVisible = evaluateCondition(condition, formSettings.data);
+            
+            console.log(`\nFinal Visibility Result for "${name}":`, {
+                Condition: condition,
+                IsVisible: isVisible
+            });
+    
             return {
                 name,
                 icon,
                 popupId: popupId.replace('loadPop_', ''),
-                condition
+                condition,
+                visible: isVisible
             };
         });
 
+        // Parse popups
         const popups = {};
         popupString.split('@@').forEach(popupStr => {
             const [id, title, columns, fields, buttonStr] = popupStr.split('~');
-            console.log("Buttons ", buttonStr);
             const popupButtons = buttonStr.split('$$').map(btn => {
-                // Destructure and split the button string by `;` to get name and action
                 const [name, ...actions] = btn.split(';');
                 
-                // Handle the case where the action is 'closePopup()'
                 if (actions.length === 1 && actions[0] === 'closePopup()') {
-                  return { name, action: 'closePopup' };
+                    return { name, action: 'closePopup' };
                 }
-              
-                // Initialize an empty updates object to hold all key-value pairs
+                
                 const updates = {};
-              
-                // Iterate through each action and store key-value pairs in the updates object
                 actions.forEach(update => {
-                  const [key, value] = update.split('=');
-                  if (key && value) {
-                    // Check if the value is a variable (e.g., $Author) and preserve it as a string
-                    updates[key] = value.startsWith('$') ? value : value.trim();
-                  }
+                    const [key, value] = update.split('=');
+                    if (key && value) {
+                        updates[key] = value.startsWith('$') ? value : value.trim();
+                    }
                 });
-              
-                // Return the name of the button and the associated updates object
+                
                 return { name, updates };
-              });
-              
-
+            });
 
             popups[id] = {
                 id,
@@ -93,8 +177,14 @@ const Edit = ({ auth, formSettings, formFields = {}, errors,menu }) => {
                 fields: fields.split(';'),
                 buttons: popupButtons
             };
-            console.log("Buttons object",popups[id]);
         });
+
+        console.log('\n==== Button Parsing Complete ====');
+        console.log('Final Buttons Configuration:', buttons.map(b => ({
+            Name: b.name,
+            IsVisible: b.visible,
+            Condition: b.condition
+        })));
 
         setParsedButtons(buttons);
         setParsedPopups(popups);
@@ -144,7 +234,7 @@ const Edit = ({ auth, formSettings, formFields = {}, errors,menu }) => {
             setButtonStates(prev => ({ ...prev, save: true }));
             setIsSubmitting(true);
 
-            await Inertia.post(route('candidates.store'), {
+            await router.post(route('candidates.store'), {
                 id: formSettings.data.id,
                 changes: changedFields,
                 saveUrl: formSettings.saveURL,
@@ -174,7 +264,7 @@ const Edit = ({ auth, formSettings, formFields = {}, errors,menu }) => {
                 return acc;
             }, {});
 
-            await Inertia.post(route('candidates.store'), {
+            await router.post(route('candidates.store'), {
                 id: formSettings.data.id,
                 changes: processedUpdates,
                 saveUrl: formSettings.saveURL,
@@ -190,6 +280,28 @@ const Edit = ({ auth, formSettings, formFields = {}, errors,menu }) => {
     };
 
     const hasUnsavedChanges = Object.keys(changedFields).length > 0;
+
+    const renderButtons = () => {
+        if (!parsedButtons.length) return null;
+
+        return (
+            <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
+                <div className="flex gap-2 justify-end">
+                    {parsedButtons.filter(button => button.visible).map((button, index) => (
+                        <button
+                            key={index}
+                            type="button"
+                            onClick={() => setActivePopup(parsedPopups[button.popupId])}
+                            disabled={isSubmitting}
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                            {button.name}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        );
+    };
 
     return (
         <AuthenticatedLayout
@@ -259,23 +371,7 @@ const Edit = ({ auth, formSettings, formFields = {}, errors,menu }) => {
                                 </div>
                             </div>
 
-                            {parsedButtons.length > 0 && (
-                                <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                                    <div className="flex gap-2 justify-end">
-                                        {parsedButtons.map((button, index) => (
-                                            <button
-                                                key={index}
-                                                type="button"
-                                                onClick={() => setActivePopup(parsedPopups[button.popupId])}
-                                                disabled={isSubmitting}
-                                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                            >
-                                                {button.name}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                            {renderButtons()}
 
                             <div className="px-4 py-5 sm:p-6">
                                 <div className="flex h-full">

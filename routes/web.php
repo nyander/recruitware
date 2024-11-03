@@ -53,6 +53,7 @@ Route::post('/external-logout', [ExternalAuthController::class, 'logout'])
 Route::middleware(['external.auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/dashboard-data', [DashboardController::class, 'getDashboardData']);
+    
 
 
     

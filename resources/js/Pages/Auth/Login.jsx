@@ -18,9 +18,21 @@ export default function Login({ status }) {
         };
     }, []);
 
-    const submit = (e) => {
+    const submit = async (e) => {
         e.preventDefault();
-        post(route('login'));
+        try {
+            await post(route('login'), {
+                onSuccess: () => {
+                    // Clear form data on success
+                    reset('password');
+                },
+                onError: (errors) => {
+                    console.error('Login errors:', errors);
+                }
+            });
+        } catch (error) {
+            console.error('Login error:', error);
+        }
     };
 
     return (
