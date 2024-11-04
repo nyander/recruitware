@@ -67,19 +67,7 @@ Route::middleware(['external.auth'])->group(function () {
     Route::get('/bookings', [TableSubmissionController::class, 'bookings'])->name('bookings.index');
     Route::get('/clients', [TableSubmissionController::class, 'clients'])->name('clients.index');
     
-    // Candidates routes
-    Route::prefix('candidates')->name('candidates.')->group(function () {
-        Route::get('/live', [CandidateController::class, 'live'])->name('live');
-        Route::get('/new', [CandidateController::class, 'new'])->name('new');
-        Route::get('/audit', [CandidateController::class, 'audit'])->name('audit');
-        Route::get('/pending', [CandidateController::class, 'pending'])->name('pending');
-        Route::get('/leavers', [CandidateController::class, 'leavers'])->name('leavers');
-        Route::get('/archive', [CandidateController::class, 'archive'])->name('archive');
-        Route::get('/no-contact', [CandidateController::class, 'noContactList'])->name('no-contact');
-        Route::get('/{id}/edit', [CandidateController::class, 'edit'])->name('edit');
-        Route::post('/store', [CandidateController::class, 'store'])->name('store');
-        Route::put('/{id}', [CandidateController::class, 'update'])->name('update');
-    });
+   
     Route::get('/{name}/{call}', [CandidateController::class, 'getCandidatePage'])->name('candidates.page');
     Route::get('/candidate/form-settings', [CandidateController::class, 'getFormSettings'])->name('candidate.form-settings');
 

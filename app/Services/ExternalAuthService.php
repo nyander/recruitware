@@ -319,7 +319,8 @@ class ExternalAuthService
         $applicationFolder = $this->userData['ApplicationFolder'] ?? Session::get('userData')['ApplicationFolder'];
         $ck = "DomAuthSessId=".$sessionId;
         $url = $args['url'];
-        $url = preg_replace('/\[FLDR\]/', $applicationFolder, $args['url']);
+        $url = preg_replace('/\[FLDR\]/', $applicationFolder, $url);
+        $url = preg_replace('/\[BASEURL\]/', $this->baseUrl, $url);
         $url = preg_replace('/\[RND\]/', $this->generateRandomString(), $url);
         $getValue = isset($args['is-post']) ? 'POST' : 'GET';
         $data = isset($args['data']) ? $args['data'] : '';
@@ -545,6 +546,7 @@ class ExternalAuthService
             'menu' => $this->getMenuData(),
             'vsetts'=> $this->vSetts,
         ];
+
 
         //vData is where we contian all the information required on the getFormSettings
 
