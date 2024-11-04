@@ -67,7 +67,12 @@ Route::middleware(['external.auth'])->group(function () {
     Route::get('/bookings', [TableSubmissionController::class, 'bookings'])->name('bookings.index');
     Route::get('/clients', [TableSubmissionController::class, 'clients'])->name('clients.index');
     
-   
+    // Candidates routes
+    Route::prefix('candidates')->name('candidates.')->group(function () {
+        Route::get('/no-contact', [CandidateController::class, 'noContactList'])->name('no-contact');
+        Route::get('/{id}/edit', [CandidateController::class, 'edit'])->name('edit');
+        Route::post('/store', [CandidateController::class, 'store'])->name('store');
+    });
     Route::get('/{name}/{call}', [CandidateController::class, 'getCandidatePage'])->name('candidates.page');
     Route::get('/candidate/form-settings', [CandidateController::class, 'getFormSettings'])->name('candidate.form-settings');
 

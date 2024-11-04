@@ -51,6 +51,9 @@ class ExternalAuthService
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_MAXREDIRS => 5,
+            // Remove or set to false to disable debug output
+            CURLOPT_VERBOSE => false,
+            CURLOPT_STDERR => null
         ],
         'headers' => [
             'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -67,7 +70,8 @@ class ExternalAuthService
         ],
         'connect_timeout' => 30,
         'timeout' => 30,
-        'debug' => true,
+        // Set debug to false
+        'debug' => false,
         'decode_content' => true,
         'http_errors' => false
     ]);
@@ -297,7 +301,8 @@ class ExternalAuthService
         $applicationFolder = $this->userData['ApplicationFolder'] ?? Session::get('userData')['ApplicationFolder'];
         $userName = $this->userData['UserName'] ?? Session::get('userData')['UserName'];
 
-        $url = $this->baseUrl .'//'.$applicationFolder . '/profiles.nsf/ag.getprsetts?openagent&' . $this->generateRandomString() .  '|' . $userName . '|' . $Ty;
+        $url = $this->baseUrl .'/'.$applicationFolder . '/profiles.nsf/ag.getprsetts?openagent&' . $this->generateRandomString() .  '|' . $userName . '|' . $Ty;
+        
         $args = [
             'url' => $url,
             'data-type' => 'Settings',
@@ -343,7 +348,7 @@ class ExternalAuthService
         ]);
     
         Log::info('Cookies sent with request:', ['cookies' => Session::get('cookieJar')]);
-        $resp = $response->getBody()->getContents();
+        $resp = $response->getBody()->getContents(); 
 
 
 
@@ -450,6 +455,8 @@ class ExternalAuthService
     public function getMenuData()
     {
         $userData = Session::get('userData');
+
+        
         if (!$userData || !isset($userData['menuopts'])) {
             Log::warning('Menu options not found in session', [
                 'userData_exists' => !empty($userData),
@@ -547,7 +554,7 @@ class ExternalAuthService
             'vsetts'=> $this->vSetts,
         ];
 
-
+        // dd($structuredData);
         //vData is where we contian all the information required on the getFormSettings
 
         return $structuredData;
