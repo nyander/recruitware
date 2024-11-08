@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 
-const CandidateForm = ({ 
-    formSettings, 
+const CandidateForm = ({
+    formSettings,
     formFields,
-    activeTab, 
-    handleFieldChange, 
-    isEditMode, 
+    activeTab,
+    handleFieldChange,
+    isEditMode,
     formData,
-    isSubmitting 
+    isSubmitting,
 }) => {
     const [localFormData, setLocalFormData] = useState({});
 
@@ -21,11 +21,11 @@ const CandidateForm = ({
         if (!isEditMode || isSubmitting) return;
 
         const fieldLower = field.toLowerCase();
-        
-        setLocalFormData(prev => ({
+
+        setLocalFormData((prev) => ({
             ...prev,
             [field]: value,
-            [fieldLower]: value
+            [fieldLower]: value,
         }));
 
         handleFieldChange(field, value);
@@ -35,17 +35,17 @@ const CandidateForm = ({
         if (localFormData[field] !== undefined) {
             return localFormData[field];
         }
-        
+
         const fieldLower = field.toLowerCase();
         if (localFormData[fieldLower] !== undefined) {
             return localFormData[fieldLower];
         }
-        
+
         if (formData[field] !== undefined) {
             return formData[field];
         }
-        
-        return '';
+
+        return "";
     };
 
     const renderField = (field) => {
@@ -58,57 +58,77 @@ const CandidateForm = ({
         const commonProps = {
             disabled: !isEditMode || isSubmitting,
             className: `shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md ${
-                (!isEditMode || isSubmitting) ? 'bg-gray-50 cursor-not-allowed opacity-75' : ''
+                !isEditMode || isSubmitting
+                    ? "bg-gray-50 cursor-not-allowed opacity-75"
+                    : ""
             }`,
         };
 
         switch (type?.toLowerCase()) {
-            case 'select':
+            case "select":
                 return (
                     <select
                         id={field}
                         name={field}
-                        value={value || ''}
-                        onChange={(e) => handleInputChange(field, e.target.value)}
+                        value={value || ""}
+                        onChange={(e) =>
+                            handleInputChange(field, e.target.value)
+                        }
                         {...commonProps}
                     >
                         <option value="">Select {label}</option>
-                        {Array.isArray(options) && options.map((option, index) => {
-                            // Handle both object and string options
-                            const optionValue = typeof option === 'object' ? option.value : option;
-                            const optionLabel = typeof option === 'object' ? option.label : option;
-                            
-                            return (
-                                <option key={index} value={optionValue || ''}>
-                                    {optionLabel || optionValue || ''}
-                                </option>
-                            );
-                        })}
+                        {Array.isArray(options) &&
+                            options.map((option, index) => {
+                                // Handle both object and string options
+                                const optionValue =
+                                    typeof option === "object"
+                                        ? option.value
+                                        : option;
+                                const optionLabel =
+                                    typeof option === "object"
+                                        ? option.label
+                                        : option;
+
+                                return (
+                                    <option
+                                        key={index}
+                                        value={optionValue || ""}
+                                    >
+                                        {optionLabel || optionValue || ""}
+                                    </option>
+                                );
+                            })}
                     </select>
                 );
-            case 'checkbox':
+            case "checkbox":
                 return (
                     <input
                         type="checkbox"
                         id={field}
                         name={field}
-                        checked={value === true || value === "1" || value === "Yes"}
-                        onChange={(e) => handleInputChange(field, e.target.checked)}
+                        checked={
+                            value === true || value === "1" || value === "Yes"
+                        }
+                        onChange={(e) =>
+                            handleInputChange(field, e.target.checked)
+                        }
                         disabled={!isEditMode || isSubmitting}
                         className={`focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded ${
-                            (!isEditMode || isSubmitting) ? 'cursor-not-allowed opacity-75' : ''
+                            !isEditMode || isSubmitting
+                                ? "cursor-not-allowed opacity-75"
+                                : ""
                         }`}
                     />
                 );
-            case 'attach':
+            case "attach":
                 return (
                     <div className="mt-1">
                         {value && (
                             <div className="mb-2">
-                                <a 
-                                    href={value} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
+                                <a
+                                    href={value}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                     className="text-indigo-600 hover:text-indigo-800"
                                 >
                                     Current File
@@ -120,7 +140,9 @@ const CandidateForm = ({
                                 type="file"
                                 id={field}
                                 name={field}
-                                onChange={(e) => handleInputChange(field, e.target.files[0])}
+                                onChange={(e) =>
+                                    handleInputChange(field, e.target.files[0])
+                                }
                                 className="focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300"
                             />
                         )}
@@ -129,11 +151,13 @@ const CandidateForm = ({
             default:
                 return (
                     <input
-                        type={type?.toLowerCase() || 'text'}
+                        type={type?.toLowerCase() || "text"}
                         id={field}
                         name={field}
-                        value={value || ''}
-                        onChange={(e) => handleInputChange(field, e.target.value)}
+                        value={value || ""}
+                        onChange={(e) =>
+                            handleInputChange(field, e.target.value)
+                        }
                         {...commonProps}
                     />
                 );
@@ -143,11 +167,13 @@ const CandidateForm = ({
     const renderTabContent = () => {
         if (!formSettings?.tabs_Sections) return null;
 
-        const currentTab = formSettings.tabs_Sections.find((tab) => tab.label === activeTab);
+        const currentTab = formSettings.tabs_Sections.find(
+            (tab) => tab.label === activeTab
+        );
         if (!currentTab) return <p>No content available for this tab.</p>;
 
-        const sections = Array.isArray(currentTab.sections) 
-            ? currentTab.sections 
+        const sections = Array.isArray(currentTab.sections)
+            ? currentTab.sections
             : Object.values(currentTab.sections);
 
         return (
@@ -157,10 +183,17 @@ const CandidateForm = ({
                         <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
                             {section.label}
                         </h3>
-                        <div className={`grid grid-cols-${section.columns || 1} gap-4`}>
+                        <div
+                            className={`grid grid-cols-${
+                                section.columns || 1
+                            } gap-4`}
+                        >
                             {section.fields.map((field) => (
                                 <div key={field} className="mb-4">
-                                    <label htmlFor={field} className="block text-sm font-medium text-gray-700">
+                                    <label
+                                        htmlFor={field}
+                                        className="block text-sm font-medium text-gray-700"
+                                    >
                                         {formFields[field]?.label || field}
                                     </label>
                                     <div className="mt-1">
@@ -181,7 +214,11 @@ const CandidateForm = ({
     }
 
     return (
-        <div className={`w-full ${isSubmitting ? 'pointer-events-none opacity-75' : ''}`}>
+        <div
+            className={`w-full ${
+                isSubmitting ? "pointer-events-none opacity-75" : ""
+            }`}
+        >
             {renderTabContent()}
         </div>
     );

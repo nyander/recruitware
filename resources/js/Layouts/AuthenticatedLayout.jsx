@@ -336,7 +336,7 @@ export default function Authenticated({
                 onMouseLeave={handleMouseLeave}
                 className={`bg-[#213341] flex flex-col transition-all duration-300 ease-in-out ${
                     showingSidebar ? "translate-x-0" : "-translate-x-full"
-                } lg:translate-x-0 fixed lg:static z-40 h-screen ${
+                } lg:translate-x-0 fixed lg:sticky top-0 z-40 h-screen ${
                     isExpanded ? "w-64" : "w-20"
                 }`}
             >
