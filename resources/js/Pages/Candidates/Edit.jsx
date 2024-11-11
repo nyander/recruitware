@@ -52,19 +52,19 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
 
         // Remove any parentheses and trim
         const cleanCondition = condition.replace(/[()]/g, "").trim();
-        console.log("Evaluating condition:", cleanCondition);
-        console.log("Current data:", data);
+        // console.log("Evaluating condition:", cleanCondition);
+        // console.log("Current data:", data);
 
         // Handle AND conditions
         if (cleanCondition.includes("AND")) {
             const conditions = cleanCondition.split("AND");
-            console.log("AND conditions:", conditions);
+            // console.log("AND conditions:", conditions);
             return conditions.every((cond) => {
                 const result = evaluateCondition(cond.trim(), data);
-                console.log(
-                    `AND sub-condition "${cond.trim()}" result:`,
-                    result
-                );
+                // console.log(
+                //     `AND sub-condition "${cond.trim()}" result:`,
+                //     result
+                // );
                 return result;
             });
         }
@@ -72,13 +72,13 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
         // Handle OR conditions
         if (cleanCondition.includes("OR")) {
             const conditions = cleanCondition.split("OR");
-            console.log("OR conditions:", conditions);
+            // console.log("OR conditions:", conditions);
             return conditions.some((cond) => {
                 const result = evaluateCondition(cond.trim(), data);
-                console.log(
-                    `OR sub-condition "${cond.trim()}" result:`,
-                    result
-                );
+                // console.log(
+                //     `OR sub-condition "${cond.trim()}" result:`,
+                //     result
+                // );
                 return result;
             });
         }
@@ -89,14 +89,14 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
                 .split("!=")
                 .map((s) => s.trim());
             const actualValue = data[field.toLowerCase()];
-            console.log(`Comparing ${field}:`, {
-                "Field (lowercase)": field.toLowerCase(),
-                "Actual Value": actualValue,
-                "Expected Value": expectedValue,
-                "Comparison Type": "!=",
-            });
+            // console.log(`Comparing ${field}:`, {
+            //     "Field (lowercase)": field.toLowerCase(),
+            //     "Actual Value": actualValue,
+            //     "Expected Value": expectedValue,
+            //     "Comparison Type": "!=",
+            // });
             const result = actualValue !== expectedValue;
-            console.log(`!= comparison result:`, result);
+            // console.log(`!= comparison result:`, result);
             return result;
         }
 
@@ -106,50 +106,50 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
                 .split("=")
                 .map((s) => s.trim());
             const actualValue = data[field.toLowerCase()];
-            console.log(`Comparing ${field}:`, {
-                "Field (lowercase)": field.toLowerCase(),
-                "Actual Value": actualValue,
-                "Expected Value": expectedValue,
-                "Comparison Type": "=",
-            });
+            // console.log(`Comparing ${field}:`, {
+            //     "Field (lowercase)": field.toLowerCase(),
+            //     "Actual Value": actualValue,
+            //     "Expected Value": expectedValue,
+            //     "Comparison Type": "=",
+            // });
             const result = actualValue === expectedValue;
-            console.log(`= comparison result:`, result);
+            // console.log(`= comparison result:`, result);
             return result;
         }
 
-        console.log("No comparison operators found, defaulting to true");
+        // console.log("No comparison operators found, defaulting to true");
         return true;
     };
 
     const parseButtonsAndPopups = (buttonString, popupString) => {
-        console.log(
-            "\n==== Starting Button Parsing and Visibility Evaluation ====\n"
-        );
+        // console.log(
+        //     "\n==== Starting Button Parsing and Visibility Evaluation ====\n"
+        // );
 
         const buttons = buttonString.split("@@").map((buttonStr, index) => {
-            console.log(`\n--- Processing Button ${index + 1} ---`);
+            // console.log(`\n--- Processing Button ${index + 1} ---`);
 
             const [name, icon, popupId, condition] = buttonStr.split(";");
-            console.log("Button Details:", {
-                Name: name,
-                Icon: icon,
-                PopupId: popupId,
-                Condition: condition,
-            });
+            // console.log("Button Details:", {
+            //     Name: name,
+            //     Icon: icon,
+            //     PopupId: popupId,
+            //     Condition: condition,
+            // });
 
-            console.log("\nRelevant User/Candidate Data:", {
-                Status: formSettings.data.status,
-                RegStatus: formSettings.data.regstatus,
-                // Add other relevant fields here
-                ...formSettings.data,
-            });
+            // console.log("\nRelevant User/Candidate Data:", {
+            //     Status: formSettings.data.status,
+            //     RegStatus: formSettings.data.regstatus,
+            //     // Add other relevant fields here
+            //     ...formSettings.data,
+            // });
 
             const isVisible = evaluateCondition(condition, formSettings.data);
 
-            console.log(`\nFinal Visibility Result for "${name}":`, {
-                Condition: condition,
-                IsVisible: isVisible,
-            });
+            // console.log(`\nFinal Visibility Result for "${name}":`, {
+            //     Condition: condition,
+            //     IsVisible: isVisible,
+            // });
 
             return {
                 name,
@@ -193,15 +193,15 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
             };
         });
 
-        console.log("\n==== Button Parsing Complete ====");
-        console.log(
-            "Final Buttons Configuration:",
-            buttons.map((b) => ({
-                Name: b.name,
-                IsVisible: b.visible,
-                Condition: b.condition,
-            }))
-        );
+        // console.log("\n==== Button Parsing Complete ====");
+        // console.log(
+        //     "Final Buttons Configuration:",
+        //     buttons.map((b) => ({
+        //         Name: b.name,
+        //         IsVisible: b.visible,
+        //         Condition: b.condition,
+        //     }))
+        // );
 
         setParsedButtons(buttons);
         setParsedPopups(popups);

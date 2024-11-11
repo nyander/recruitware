@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import AttachmentField from "./AttachmentField";
 
 const CandidateForm = ({
     formSettings,
@@ -65,6 +66,16 @@ const CandidateForm = ({
         };
 
         switch (type?.toLowerCase()) {
+            case "attach":
+                return (
+                    <AttachmentField
+                        field={field}
+                        value={value}
+                        isEditMode={isEditMode}
+                        isSubmitting={isSubmitting}
+                        handleInputChange={handleInputChange}
+                    />
+                );
             case "select":
                 return (
                     <select
@@ -79,7 +90,6 @@ const CandidateForm = ({
                         <option value="">Select {label}</option>
                         {Array.isArray(options) &&
                             options.map((option, index) => {
-                                // Handle both object and string options
                                 const optionValue =
                                     typeof option === "object"
                                         ? option.value
@@ -119,34 +129,6 @@ const CandidateForm = ({
                                 : ""
                         }`}
                     />
-                );
-            case "attach":
-                return (
-                    <div className="mt-1">
-                        {value && (
-                            <div className="mb-2">
-                                <a
-                                    href={value}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-indigo-600 hover:text-indigo-800"
-                                >
-                                    Current File
-                                </a>
-                            </div>
-                        )}
-                        {isEditMode && !isSubmitting && (
-                            <input
-                                type="file"
-                                id={field}
-                                name={field}
-                                onChange={(e) =>
-                                    handleInputChange(field, e.target.files[0])
-                                }
-                                className="focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300"
-                            />
-                        )}
-                    </div>
                 );
             default:
                 return (
