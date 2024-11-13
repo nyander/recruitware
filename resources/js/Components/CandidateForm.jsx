@@ -76,6 +76,20 @@ const CandidateForm = ({
                         handleInputChange={handleInputChange}
                     />
                 );
+            case "readonly":
+                return (
+                    <input
+                        type="text"
+                        id={field}
+                        name={field}
+                        value={value || ""}
+                        readOnly
+                        disabled
+                        className="shadow-sm block w-full sm:text-sm border-gray-200 rounded-md bg-gray-50 cursor-not-allowed"
+                        aria-readonly="true"
+                    />
+                );
+
             case "select":
                 return (
                     <select

@@ -1,37 +1,37 @@
-import { useEffect } from 'react';
-import GuestLayout from '@/Layouts/GuestLayout';
-import InputError from '@/Components/InputError';
-import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
-import TextInput from '@/Components/TextInput';
-import { Head, useForm } from '@inertiajs/react';
+import { useEffect } from "react";
+import GuestLayout from "@/Layouts/GuestLayout";
+import InputError from "@/Components/InputError";
+import InputLabel from "@/Components/InputLabel";
+import PrimaryButton from "@/Components/PrimaryButton";
+import TextInput from "@/Components/TextInput";
+import { Head, useForm } from "@inertiajs/react";
 
 export default function Login({ status }) {
     const { data, setData, post, processing, errors, reset } = useForm({
-        username: '',
-        password: '',
+        username: "",
+        password: "",
     });
 
     useEffect(() => {
         return () => {
-            reset('password');
+            reset("password");
         };
     }, []);
 
     const submit = async (e) => {
         e.preventDefault();
         try {
-            await post(route('login'), {
+            await post(route("login"), {
                 onSuccess: () => {
                     // Clear form data on success
-                    reset('password');
+                    reset("password");
                 },
                 onError: (errors) => {
-                    console.error('Login errors:', errors);
-                }
+                    console.error("Login errors:", errors);
+                },
             });
         } catch (error) {
-            console.error('Login error:', error);
+            console.error("Login error:", error);
         }
     };
 
@@ -39,7 +39,11 @@ export default function Login({ status }) {
         <GuestLayout>
             <Head title="Log in" />
 
-            {status && <div className="mb-4 font-medium text-sm text-green-600">{status}</div>}
+            {status && (
+                <div className="mb-4 font-medium text-sm text-green-600">
+                    {status}
+                </div>
+            )}
 
             <form onSubmit={submit}>
                 <div>
@@ -53,7 +57,7 @@ export default function Login({ status }) {
                         className="mt-1 block w-full"
                         autoComplete="username"
                         isFocused={true}
-                        onChange={(e) => setData('username', e.target.value)}
+                        onChange={(e) => setData("username", e.target.value)}
                     />
 
                     <InputError message={errors.username} className="mt-2" />
@@ -68,7 +72,7 @@ export default function Login({ status }) {
                         name="password"
                         className="mt-1 block w-full"
                         autoComplete="current-password"
-                        onChange={(e) => setData('password', e.target.value)}
+                        onChange={(e) => setData("password", e.target.value)}
                     />
 
                     <InputError message={errors.password} className="mt-2" />

@@ -46,41 +46,26 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
 
     const evaluateCondition = (condition, data) => {
         if (!condition) {
-            console.log("No condition specified, defaulting to true");
-            return true;
+            console.log("No condition specified, defaulting to false");
+            return false;
         }
 
-        // Remove any parentheses and trim
         const cleanCondition = condition.replace(/[()]/g, "").trim();
-        // console.log("Evaluating condition:", cleanCondition);
-        // console.log("Current data:", data);
 
         // Handle AND conditions
         if (cleanCondition.includes("AND")) {
             const conditions = cleanCondition.split("AND");
-            // console.log("AND conditions:", conditions);
-            return conditions.every((cond) => {
-                const result = evaluateCondition(cond.trim(), data);
-                // console.log(
-                //     `AND sub-condition "${cond.trim()}" result:`,
-                //     result
-                // );
-                return result;
-            });
+            return conditions.every((cond) =>
+                evaluateCondition(cond.trim(), data)
+            );
         }
 
         // Handle OR conditions
         if (cleanCondition.includes("OR")) {
             const conditions = cleanCondition.split("OR");
-            // console.log("OR conditions:", conditions);
-            return conditions.some((cond) => {
-                const result = evaluateCondition(cond.trim(), data);
-                // console.log(
-                //     `OR sub-condition "${cond.trim()}" result:`,
-                //     result
-                // );
-                return result;
-            });
+            return conditions.some((cond) =>
+                evaluateCondition(cond.trim(), data)
+            );
         }
 
         // Handle != comparison
@@ -89,15 +74,7 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
                 .split("!=")
                 .map((s) => s.trim());
             const actualValue = data[field.toLowerCase()];
-            // console.log(`Comparing ${field}:`, {
-            //     "Field (lowercase)": field.toLowerCase(),
-            //     "Actual Value": actualValue,
-            //     "Expected Value": expectedValue,
-            //     "Comparison Type": "!=",
-            // });
-            const result = actualValue !== expectedValue;
-            // console.log(`!= comparison result:`, result);
-            return result;
+            return actualValue !== expectedValue; // Returns true if the values are different
         }
 
         // Handle = comparison
@@ -106,50 +83,25 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
                 .split("=")
                 .map((s) => s.trim());
             const actualValue = data[field.toLowerCase()];
-            // console.log(`Comparing ${field}:`, {
-            //     "Field (lowercase)": field.toLowerCase(),
-            //     "Actual Value": actualValue,
-            //     "Expected Value": expectedValue,
-            //     "Comparison Type": "=",
-            // });
-            const result = actualValue === expectedValue;
-            // console.log(`= comparison result:`, result);
-            return result;
+            return actualValue === expectedValue; // Returns true if the values are equal
         }
 
-        // console.log("No comparison operators found, defaulting to true");
-        return true;
+        return false;
     };
 
     const parseButtonsAndPopups = (buttonString, popupString) => {
-        // console.log(
-        //     "\n==== Starting Button Parsing and Visibility Evaluation ====\n"
-        // );
-
         const buttons = buttonString.split("@@").map((buttonStr, index) => {
-            // console.log(`\n--- Processing Button ${index + 1} ---`);
-
             const [name, icon, popupId, condition] = buttonStr.split(";");
-            // console.log("Button Details:", {
-            //     Name: name,
-            //     Icon: icon,
-            //     PopupId: popupId,
-            //     Condition: condition,
-            // });
 
-            // console.log("\nRelevant User/Candidate Data:", {
-            //     Status: formSettings.data.status,
-            //     RegStatus: formSettings.data.regstatus,
-            //     // Add other relevant fields here
-            //     ...formSettings.data,
-            // });
+            // Evaluate condition - if true, button should be hidden
+            // So we show the button when condition is false
+            const isVisible = !evaluateCondition(condition, formSettings.data);
 
-            const isVisible = evaluateCondition(condition, formSettings.data);
-
-            // console.log(`\nFinal Visibility Result for "${name}":`, {
-            //     Condition: condition,
-            //     IsVisible: isVisible,
-            // });
+            console.log(`Button "${name}" visibility:`, {
+                condition: condition,
+                isVisible: isVisible,
+                data: formSettings.data,
+            });
 
             return {
                 name,
@@ -192,16 +144,6 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
                 buttons: popupButtons,
             };
         });
-
-        // console.log("\n==== Button Parsing Complete ====");
-        // console.log(
-        //     "Final Buttons Configuration:",
-        //     buttons.map((b) => ({
-        //         Name: b.name,
-        //         IsVisible: b.visible,
-        //         Condition: b.condition,
-        //     }))
-        // );
 
         setParsedButtons(buttons);
         setParsedPopups(popups);

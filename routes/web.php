@@ -49,6 +49,14 @@ Route::post('/external-logout', [ExternalAuthController::class, 'logout'])
     ->name('external-logout')
     ->middleware(['web']);
 
+Route::get('/upload-proxy', function () {
+    return response()->file(public_path('upload-proxy.php'));
+});
+
+Route::get('/upload-callback', function () {
+    return response()->file(public_path('upload-callback.php'));
+});
+
 
 Route::middleware(['external.auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -133,6 +141,10 @@ Route::middleware(['external.auth'])->group(function () {
         Route::get('/financial', [UnderDevelopmentController::class, 'show'])->name('financial');
         Route::get('/hr-report', [UnderDevelopmentController::class, 'show'])->name('hr-report');
     });
+});
+
+Route::get('/upload-proxy.php', function () {
+    return response()->file(public_path('upload-proxy.php'));
 });
 
 require __DIR__.'/auth.php';
