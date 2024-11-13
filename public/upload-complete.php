@@ -1,3 +1,20 @@
+<?php
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, GET');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Debug logging
+error_log("upload-complete.php - GET parameters: " . print_r($_GET, true));
+error_log("upload-complete.php - POST parameters: " . print_r($_POST, true));
+
+$field = $_POST['Fieldn'] ?? $_GET['fieldn'] ?? '';
+error_log("upload-complete.php - Field value: " . $field);
+
+$filePath = isset($_GET['value']) ? $_GET['value'] : '';
+$fileName = isset($_GET['field']) ? $_GET['field'] : '';
+$filePath = str_replace('%26', '%20', $filePath);
+$decodedFilePath = urldecode($filePath);
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,35 +22,31 @@
     <title>Upload Complete</title>
 </head>
 <body>
-    <?php
-    // Retrieve the file path from the URL parameter
-    $filePath = isset($_GET['value']) ? $_GET['value'] : '';
-
-    // Convert %26 to %20 (for spaces)
-    $filePath = str_replace('%26', '%20', $filePath);
-
-    // Decode the URL-encoded string to get the actual file path with spaces
-    $decodedFilePath = urldecode($filePath);
-    ?>
-    
     <script>
-        // Pass the decoded file path to JavaScript
-        const filePath = "<?php echo htmlspecialchars($decodedFilePath); ?>";
+        // Debug logging
+        console.log('Upload complete parameters:', {
+            field: "<?php echo htmlspecialchars($fileName); ?>",
+            filePath: "<?php echo htmlspecialchars($decodedFilePath); ?>"
+        });
 
-        if (filePath) {
-            // Send the file path back to the parent window
-            window.parent.postMessage({
+        if ("<?php echo $filePath ?>") {
+            const message = {
                 type: 'fileUploaded',
-                fileLocation: filePath
-            }, '*');
-
-            // Optional alert for debugging
-            alert("File uploaded: " + filePath);
+                fileLocation: "<?php echo htmlspecialchars($decodedFilePath); ?>",
+                field: "<?php echo htmlspecialchars($fileName); ?>"
+            };
+            
+            console.log('Sending message to parent:', message);
+            window.parent.postMessage(message, '*');
         } else {
-            alert("No file path provided.");
+            console.error('No file path provided');
         }
     </script>
 
-    <p>File upload complete. You may close this window.</p>
+    <!-- Debug display -->
+    <div style="margin-top: 10px; font-size: 12px; color: #666;">
+        Field: <?php echo htmlspecialchars($fileName); ?><br>
+        File Path: <?php echo htmlspecialchars($decodedFilePath); ?>
+    </div>
 </body>
 </html>

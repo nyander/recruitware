@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useRef } from "react";
 
 const AttachmentField = ({
     field,
@@ -9,50 +10,83 @@ const AttachmentField = ({
 }) => {
     const [filename, setFilename] = useState("");
     const [fileId, setFileId] = useState("");
+    const [fileLocation, setFileLocation] = useState("");
     const [uploadStatus, setUploadStatus] = useState("");
-    const [debugLog, setDebugLog] = useState([]);
+    const [iframeKey, setIframeKey] = useState(`iframe_${field}_${Date.now()}`);
+    const iframeRef = useRef(null);
 
-    const addDebugLog = (message) => {
-        console.log(`[AttachmentField] ${message}`);
-        setDebugLog((prev) => [
-            ...prev,
-            `${new Date().toISOString()}: ${message}`,
-        ]);
-    };
+    useEffect(() => {
+        const handleFileUploaded = (event) => {
+            if (event.data?.type === "fileUploaded") {
+                if (event.data.field === field) {
+                    const rawFileLocation = event.data.fileLocation;
+                    if (rawFileLocation) {
+                        // Encode spaces in the file location
+                        const encodedFileLocation = rawFileLocation.replace(
+                            /\s+/g,
+                            "%20"
+                        );
 
-    const handleIframeLoad = () => {
-        try {
-            // Access the content of the iframe
-            const iframe = document.querySelector("iframe");
-            const iframeContent =
-                iframe.contentDocument || iframe.contentWindow.document;
+                        setFilename(rawFileLocation); // Keep original filename for display
+                        handleInputChange(field, encodedFileLocation); // Use encoded version for storage/transmission
+                        setUploadStatus("File uploaded successfully");
 
-            // Extract the file path from the iframe's body text
-            const filePath = iframeContent.body.textContent.trim();
-            if (filePath) {
-                addDebugLog(`File path found: ${filePath}`);
-                setFilename(filePath);
-                handleInputChange(field, filePath);
-                setUploadStatus("File uploaded successfully");
-            } else {
-                addDebugLog("No file path found in iframe content.");
+                        // Extract file ID if present in the path
+                        const matches = rawFileLocation.match(/\/([^\/]+)_/);
+                        if (matches && matches[1]) {
+                            setFileId(matches[1]);
+                            setFileLocation(encodedFileLocation); // Store encoded version
+                            console.log("Original location:", rawFileLocation);
+                            console.log(
+                                "Encoded location:",
+                                encodedFileLocation
+                            );
+                        }
+                    }
+                }
             }
-        } catch (error) {
-            addDebugLog(`Error accessing iframe content: ${error.message}`);
+        };
+
+        window.addEventListener("message", handleFileUploaded);
+
+        // Initialize with existing value if present
+        if (value) {
+            const encodedValue = value.replace(/\s+/g, "%20");
+            setFilename(value); // Keep original for display
+            setFileLocation(encodedValue); // Store encoded version
         }
-    };
+
+        return () => {
+            window.removeEventListener("message", handleFileUploaded);
+        };
+    }, [field, handleInputChange, value]);
 
     const handleClear = () => {
         setFilename("");
         setFileId("");
         handleInputChange(field, "");
         setUploadStatus("");
-        addDebugLog("Attachment cleared");
+
+        // Generate a new key to force iframe reload
+        setIframeKey(`iframe_${field}_${Date.now()}`);
+
+        // If you have a form reference, reset it
+        if (formRef.current) {
+            formRef.current.reset();
+        }
+
+        // Alternative approach: reload iframe directly
+        if (iframeRef.current) {
+            const currentSrc = iframeRef.current.src;
+            iframeRef.current.src = "about:blank";
+            setTimeout(() => {
+                iframeRef.current.src = currentSrc;
+            }, 100);
+        }
     };
 
     return (
         <div className="space-y-4">
-            {/* Main Input */}
             <div className="flex items-center space-x-2">
                 <div className="relative flex-1">
                     <input
@@ -70,14 +104,13 @@ const AttachmentField = ({
                     )}
                 </div>
 
-                {/* View and Clear buttons */}
                 {filename && (
                     <>
                         <button
                             type="button"
                             onClick={() =>
                                 window.open(
-                                    `http://31.193.136.171/view?id=${fileId}`,
+                                    `http://31.193.136.171/${fileLocation}`,
                                     "_blank"
                                 )
                             }
@@ -107,38 +140,39 @@ const AttachmentField = ({
                 )}
             </div>
 
-            {/* Upload Frame */}
-            <div className="border rounded-lg p-4 bg-gray-50">
-                {/* Only show iframe when in edit mode */}
-                {isEditMode && !isSubmitting && (
+            {isEditMode && !isSubmitting && (
+                <div className="border rounded-lg p-4 bg-gray-50">
                     <div className="mb-4">
-                        <iframe
-                            src="http://31.193.136.171/Apex/webstore.nsf/fresource!OpenForm&Seq=1"
-                            className="w-full h-24 border-0"
-                            style={{
-                                display: "block",
-                                overflow: "hidden",
-                            }}
-                            onLoad={handleIframeLoad}
-                        />
-                    </div>
-                )}
-
-                {/* Debug Log */}
-                <div className="text-xs font-mono">
-                    <div>Status: {uploadStatus || "Ready"}</div>
-                    <div>Field: {field}</div>
-                    <div>Current file: {filename || "None"}</div>
-                    {debugLog.map((log, index) => (
-                        <div
-                            key={index}
-                            className="whitespace-pre-wrap text-gray-500"
+                        <form
+                            target="uploadFrame"
+                            action="http://31.193.136.171/Apex/webstore.nsf/fresource!OpenForm&Seq=1"
+                            method="post"
+                            encType="multipart/form-data"
                         >
-                            {log}
-                        </div>
-                    ))}
+                            <input type="hidden" name="field" value={field} />
+                            <iframe
+                                ref={iframeRef}
+                                key={iframeKey}
+                                name="uploadFrame"
+                                src={`http://31.193.136.171/Apex/webstore.nsf/fresource!OpenForm&Seq=1&fieldn=${encodeURIComponent(
+                                    field
+                                )}`}
+                                className="w-full h-24 border-0"
+                                style={{
+                                    display: "block",
+                                    overflow: "hidden",
+                                }}
+                                onLoad={() =>
+                                    console.log(
+                                        "iframe loaded with field:",
+                                        field
+                                    )
+                                }
+                            />
+                        </form>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
