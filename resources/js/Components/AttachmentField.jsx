@@ -145,7 +145,7 @@ const AttachmentField = ({
                     <div className="mb-4">
                         <form
                             target="uploadFrame"
-                            action="www.recruitware.uk/Apex/webstore.nsf/fresource!OpenForm&Seq=1"
+                            action="https://www.recruitware.uk/Apex/webstore.nsf/fresource!OpenForm&Seq=1"
                             method="post"
                             encType="multipart/form-data"
                         >
@@ -154,7 +154,7 @@ const AttachmentField = ({
                                 ref={iframeRef}
                                 key={iframeKey}
                                 name="uploadFrame"
-                                src={`www.recruitware.uk/Apex/webstore.nsf/fresource!OpenForm&Seq=1&fieldn=${encodeURIComponent(
+                                src={`https://www.recruitware.uk/Apex/webstore.nsf/fresource!OpenForm&Seq=1&fieldn=${encodeURIComponent(
                                     field
                                 )}`}
                                 className="w-full h-24 border-0"
