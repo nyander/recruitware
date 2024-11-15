@@ -110,7 +110,7 @@ const AttachmentField = ({
                             type="button"
                             onClick={() =>
                                 window.open(
-                                    `www.recruitware.uk/${fileLocation}`,
+                                    `https://www.recruitware.uk${fileLocation}`,
                                     "_blank"
                                 )
                             }
