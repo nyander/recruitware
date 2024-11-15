@@ -2,7 +2,7 @@
 
 /* File input button styling */
 input[type="file"] {
-    display: none;
+    display: block;
 }
 
 /* Custom button */
