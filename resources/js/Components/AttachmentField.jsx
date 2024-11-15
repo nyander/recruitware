@@ -1,3 +1,4 @@
+import { usePage } from "@inertiajs/react";
 import React, { useState, useEffect } from "react";
 import { useRef } from "react";
 
@@ -14,6 +15,7 @@ const AttachmentField = ({
     const [uploadStatus, setUploadStatus] = useState("");
     const [iframeKey, setIframeKey] = useState(`iframe_${field}_${Date.now()}`);
     const iframeRef = useRef(null);
+    const { fldr } = usePage().props;
 
     useEffect(() => {
         const handleFileUploaded = (event) => {
@@ -145,7 +147,7 @@ const AttachmentField = ({
                     <div className="mb-4">
                         <form
                             target="uploadFrame"
-                            action="https://www.recruitware.uk/Apex/webstore.nsf/fresource!OpenForm&Seq=1"
+                            action={`https://www.recruitware.uk/${fldr}/webstore.nsf/fresource!OpenForm&Seq=1`}
                             method="post"
                             encType="multipart/form-data"
                         >
@@ -154,7 +156,7 @@ const AttachmentField = ({
                                 ref={iframeRef}
                                 key={iframeKey}
                                 name="uploadFrame"
-                                src={`https://www.recruitware.uk/Apex/webstore.nsf/fresource!OpenForm&Seq=1&fieldn=${encodeURIComponent(
+                                src={`https://www.recruitware.uk/${fldr}/webstore.nsf/fresource!OpenForm&Seq=1&fieldn=${encodeURIComponent(
                                     field
                                 )}`}
                                 className="w-full h-24 border-0"

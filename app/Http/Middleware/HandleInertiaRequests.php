@@ -35,6 +35,7 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
+            'fldr' => Session::get('fldr'),
             'auth' => [
                 'user' => $isLoggedIn ? [
                     'name' => $userData['FullName'] ?? $userData['UserName'] ?? '',

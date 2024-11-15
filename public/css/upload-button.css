@@ -1,0 +1,168 @@
+/* public/css/upload-button.css */
+
+/* File input button styling */
+input[type="file"] {
+    display: none;
+}
+
+/* Custom button */
+.upload-btn {
+    display: inline-block;
+    padding: 8px 16px;
+    background-color: #4f46e5; /* Indigo-600 */
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.25;
+    text-align: center;
+    transition: all 0.15s ease-in-out;
+}
+
+.upload-btn:hover {
+    background-color: #4338ca; /* Indigo-700 */
+}
+
+.upload-btn:active {
+    background-color: #3730a3; /* Indigo-800 */
+}
+
+/* Disabled state */
+.upload-btn:disabled {
+    background-color: #e5e7eb; /* Gray-200 */
+    color: #9ca3af; /* Gray-400 */
+    cursor: not-allowed;
+}
+
+/* File name display */
+.file-name {
+    margin-top: 8px;
+    font-size: 14px;
+    color: #4b5563; /* Gray-600 */
+}
+
+/* Progress bar container */
+.progress-container {
+    margin-top: 8px;
+    width: 100%;
+    background-color: #e5e7eb; /* Gray-200 */
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* Progress bar */
+.progress-bar {
+    height: 4px;
+    background-color: #4f46e5; /* Indigo-600 */
+    transition: width 0.3s ease;
+}
+
+/* Error state */
+.error-text {
+    margin-top: 8px;
+    color: #dc2626; /* Red-600 */
+    font-size: 14px;
+}
+
+/* Success state */
+.success-text {
+    margin-top: 8px;
+    color: #059669; /* Green-600 */
+    font-size: 14px;
+}
+
+/* Container for the entire upload section */
+.upload-container {
+    padding: 16px;
+    border: 2px dashed #e5e7eb; /* Gray-200 */
+    border-radius: 8px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.upload-container:hover {
+    border-color: #4f46e5; /* Indigo-600 */
+}
+
+/* Drag and drop state */
+.upload-container.drag-over {
+    border-color: #4f46e5; /* Indigo-600 */
+    background-color: #eef2ff; /* Indigo-50 */
+}
+
+/* Clear button */
+.clear-btn {
+    display: inline-block;
+    padding: 6px 12px;
+    margin-left: 8px;
+    background-color: #dc2626; /* Red-600 */
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.25;
+    transition: all 0.15s ease-in-out;
+}
+
+.clear-btn:hover {
+    background-color: #b91c1c; /* Red-700 */
+}
+
+.clear-btn:disabled {
+    background-color: #e5e7eb; /* Gray-200 */
+    color: #9ca3af; /* Gray-400 */
+    cursor: not-allowed;
+}
+
+/* View button */
+.view-btn {
+    display: inline-block;
+    padding: 6px 12px;
+    margin-left: 8px;
+    background-color: #059669; /* Green-600 */
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.25;
+    transition: all 0.15s ease-in-out;
+}
+
+.view-btn:hover {
+    background-color: #047857; /* Green-700 */
+}
+
+.view-btn:disabled {
+    background-color: #e5e7eb; /* Gray-200 */
+    color: #9ca3af; /* Gray-400 */
+    cursor: not-allowed;
+}
+
+/* Message styles */
+.message {
+    margin-top: 8px;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.message.info {
+    background-color: #eff6ff; /* Blue-50 */
+    color: #1d4ed8; /* Blue-700 */
+}
+
+.message.success {
+    background-color: #ecfdf5; /* Green-50 */
+    color: #059669; /* Green-600 */
+}
+
+.message.error {
+    background-color: #fef2f2; /* Red-50 */
+    color: #dc2626; /* Red-600 */
+}

@@ -147,4 +147,11 @@ Route::get('/upload-proxy.php', function () {
     return response()->file(public_path('upload-proxy.php'));
 });
 
+Route::get('/css/upload-button.css', function () {
+    return response()
+        ->file(public_path('css/upload-button.css'))
+        ->header('Content-Type', 'text/css')
+        ->header('Access-Control-Allow-Origin', '*');
+});
+
 require __DIR__.'/auth.php';
