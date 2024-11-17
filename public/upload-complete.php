@@ -25,7 +25,7 @@ $decodedFilePath = urldecode($filePath);
     <script>
         // Debug logging
         console.log('Upload complete parameters:', {
-            field: "<?php echo htmlspecialchars($fileName); ?>",
+            field: "Upload complete",
             filePath: "<?php echo htmlspecialchars($decodedFilePath); ?>"
         });
 
@@ -44,9 +44,9 @@ $decodedFilePath = urldecode($filePath);
     </script>
 
     <!-- Debug display -->
-    <div style="margin-top: 10px; font-size: 12px; color: #666;">
+    <!-- <div style="margin-top: 10px; font-size: 12px; color: #666;">
         Field: <?php echo htmlspecialchars($fileName); ?><br>
         File Path: <?php echo htmlspecialchars($decodedFilePath); ?>
-    </div>
+    </div> -->
 </body>
 </html>

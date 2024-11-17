@@ -18,6 +18,7 @@ const AttachmentField = ({
     const formRef = useRef(null);
     const fileInputRef = useRef(null);
     const { fldr } = usePage().props;
+    const [isIframeLoading, setIsIframeLoading] = useState(true);
 
     useEffect(() => {
         const handleFileUploaded = (event) => {
@@ -89,17 +90,9 @@ const AttachmentField = ({
         }
     };
 
-    const handleUploadClick = () => {
-        // Find the freshupload input in the iframe and trigger its click
-        const iframe = iframeRef.current;
-        if (iframe && iframe.contentWindow) {
-            const uploadButton = iframe.contentWindow.document.querySelector(
-                "#freshupload.upload-btn"
-            );
-            if (uploadButton) {
-                uploadButton.click();
-            }
-        }
+    const handleIframeLoad = () => {
+        setIsIframeLoading(false);
+        console.log("iframe loaded with field:", field);
     };
 
     return (
@@ -123,6 +116,11 @@ const AttachmentField = ({
 
                 {isEditMode && !isSubmitting && (
                     <div className="relative h-[38px] w-[76px] overflow-hidden">
+                        {isIframeLoading && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white">
+                                <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                        )}
                         <iframe
                             ref={iframeRef}
                             key={iframeKey}
@@ -137,7 +135,9 @@ const AttachmentField = ({
                                 border: "none",
                                 transform: "scale(1)",
                                 transformOrigin: "top left",
+                                opacity: isIframeLoading ? "0" : "1",
                             }}
+                            onLoad={handleIframeLoad}
                         />
                     </div>
                 )}
