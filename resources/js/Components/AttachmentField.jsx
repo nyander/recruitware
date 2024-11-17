@@ -15,6 +15,8 @@ const AttachmentField = ({
     const [uploadStatus, setUploadStatus] = useState("");
     const [iframeKey, setIframeKey] = useState(`iframe_${field}_${Date.now()}`);
     const iframeRef = useRef(null);
+    const formRef = useRef(null);
+    const fileInputRef = useRef(null);
     const { fldr } = usePage().props;
 
     useEffect(() => {
@@ -87,6 +89,19 @@ const AttachmentField = ({
         }
     };
 
+    const handleUploadClick = () => {
+        // Find the freshupload input in the iframe and trigger its click
+        const iframe = iframeRef.current;
+        if (iframe && iframe.contentWindow) {
+            const uploadButton = iframe.contentWindow.document.querySelector(
+                "#freshupload.upload-btn"
+            );
+            if (uploadButton) {
+                uploadButton.click();
+            }
+        }
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex items-center space-x-2">
@@ -105,6 +120,27 @@ const AttachmentField = ({
                         </div>
                     )}
                 </div>
+
+                {isEditMode && !isSubmitting && (
+                    <div className="relative h-[38px] w-[76px] overflow-hidden">
+                        <iframe
+                            ref={iframeRef}
+                            key={iframeKey}
+                            name="uploadFrame"
+                            src={`https://www.recruitware.uk/${fldr}/webstore.nsf/fresource!OpenForm&Seq=1&fieldn=${encodeURIComponent(
+                                field
+                            )}`}
+                            className="absolute top-0 left-0"
+                            style={{
+                                width: "76px",
+                                height: "38px",
+                                border: "none",
+                                transform: "scale(1)",
+                                transformOrigin: "top left",
+                            }}
+                        />
+                    </div>
+                )}
 
                 {filename && (
                     <>
@@ -141,40 +177,6 @@ const AttachmentField = ({
                     </>
                 )}
             </div>
-
-            {isEditMode && !isSubmitting && (
-                <div className="border rounded-lg p-4 bg-gray-50">
-                    <div className="mb-4">
-                        <form
-                            target="uploadFrame"
-                            action={`https://www.recruitware.uk/${fldr}/webstore.nsf/fresource!OpenForm&Seq=1`}
-                            method="post"
-                            encType="multipart/form-data"
-                        >
-                            <input type="hidden" name="field" value={field} />
-                            <iframe
-                                ref={iframeRef}
-                                key={iframeKey}
-                                name="uploadFrame"
-                                src={`https://www.recruitware.uk/${fldr}/webstore.nsf/fresource!OpenForm&Seq=1&fieldn=${encodeURIComponent(
-                                    field
-                                )}`}
-                                className="w-full h-24 border-0"
-                                style={{
-                                    display: "block",
-                                    overflow: "hidden",
-                                }}
-                                onLoad={() =>
-                                    console.log(
-                                        "iframe loaded with field:",
-                                        field
-                                    )
-                                }
-                            />
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
