@@ -44,9 +44,8 @@ $decodedFilePath = urldecode($filePath);
     </script>
 
     <!-- Debug display -->
-    <!-- <div style="margin-top: 10px; font-size: 12px; color: #666;">
-        Field: <?php echo htmlspecialchars($fileName); ?><br>
-        File Path: <?php echo htmlspecialchars($decodedFilePath); ?>
-    </div> -->
+    <div style="margin-top: 10px; font-size: 12px; color: #666;">
+        Field: Upload Complete <br>
+    </div>
 </body>
 </html>
