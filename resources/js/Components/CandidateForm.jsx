@@ -49,6 +49,16 @@ const CandidateForm = ({
         return "";
     };
 
+    // HTML field renderer component
+    const HTMLContent = ({ content }) => {
+        return (
+            <div
+                className="prose prose-sm max-w-none text-gray-700"
+                dangerouslySetInnerHTML={{ __html: content }}
+            />
+        );
+    };
+
     const renderField = (field) => {
         const fieldInfo = formFields[field];
         if (!fieldInfo) return null;
@@ -66,6 +76,16 @@ const CandidateForm = ({
         };
 
         switch (type?.toLowerCase()) {
+            case "html":
+                return (
+                    <div
+                        className={`p-3 rounded-md bg-gray-50 border border-gray-200 ${
+                            !isEditMode || isSubmitting ? "opacity-75" : ""
+                        }`}
+                    >
+                        <HTMLContent content={value} />
+                    </div>
+                );
             case "attach":
                 return (
                     <AttachmentField
