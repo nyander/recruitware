@@ -59,6 +59,42 @@ const CandidateForm = ({
         );
     };
 
+    const parseLookups = () => {
+        if (!formSettings?.lookups) return {};
+
+        const lookupData = {};
+        const lookupGroups = formSettings.lookups.split("@@");
+
+        lookupGroups.forEach((group) => {
+            const [name, options] = group.split("^");
+            if (!options) return;
+
+            lookupData[name] = options.split(";").map((option) => {
+                const [text, value] = option.split("|");
+                return {
+                    label: text.trim(),
+                    value: value || text.trim(),
+                };
+            });
+        });
+
+        return lookupData;
+    };
+
+    const getSelectOptions = (field, fieldInfo) => {
+        const lookups = parseLookups();
+        const options = fieldInfo.options;
+
+        if (options && options[0]?.value?.startsWith("[LOOKUP-")) {
+            const lookupName = options[0].value
+                .replace("[LOOKUP-", "")
+                .replace("]", "");
+            return lookups[lookupName] || [];
+        }
+
+        return options || [];
+    };
+
     const renderField = (field) => {
         const fieldInfo = formFields[field];
         if (!fieldInfo) return null;
@@ -109,60 +145,72 @@ const CandidateForm = ({
                         aria-readonly="true"
                     />
                 );
-
             case "select":
+                const selectOptions = getSelectOptions(field, fieldInfo);
+                const selectedValues = value ? value.split(";") : [];
                 return (
                     <select
                         id={field}
                         name={field}
                         value={value || ""}
                         onChange={(e) =>
-                            handleInputChange(field, e.target.value)
+                            handleFieldChange(field, e.target.value)
                         }
                         {...commonProps}
                     >
                         <option value="">Select {label}</option>
-                        {Array.isArray(options) &&
-                            options.map((option, index) => {
-                                const optionValue =
-                                    typeof option === "object"
-                                        ? option.value
-                                        : option;
-                                const optionLabel =
-                                    typeof option === "object"
-                                        ? option.label
-                                        : option;
-
-                                return (
-                                    <option
-                                        key={index}
-                                        value={optionValue || ""}
-                                    >
-                                        {optionLabel || optionValue || ""}
-                                    </option>
-                                );
-                            })}
+                        {selectOptions.map((option, index) => (
+                            <option key={index} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
                     </select>
                 );
             case "checkbox":
+                const checkboxOptions = getSelectOptions(field, fieldInfo);
+                // Remove '1;' if present at start of value string
+                const cleanValue = value?.startsWith("1;")
+                    ? value.substring(2)
+                    : value;
+                const checkboxValues = cleanValue ? cleanValue.split(";") : [];
+
                 return (
-                    <input
-                        type="checkbox"
-                        id={field}
-                        name={field}
-                        checked={
-                            value === true || value === "1" || value === "Yes"
-                        }
-                        onChange={(e) =>
-                            handleInputChange(field, e.target.checked)
-                        }
-                        disabled={!isEditMode || isSubmitting}
-                        className={`focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded ${
-                            !isEditMode || isSubmitting
-                                ? "cursor-not-allowed opacity-75"
-                                : ""
-                        }`}
-                    />
+                    <div className="space-y-2">
+                        {checkboxOptions.map((option, index) => (
+                            <label
+                                key={index}
+                                className="flex items-center space-x-3"
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={checkboxValues.includes(
+                                        option.value
+                                    )}
+                                    onChange={(e) => {
+                                        const newValues = e.target.checked
+                                            ? [...checkboxValues, option.value]
+                                            : checkboxValues.filter(
+                                                  (v) => v !== option.value
+                                              );
+                                        // Submit raw selected values without prepending '1;'
+                                        handleFieldChange(
+                                            field,
+                                            newValues.join(";")
+                                        );
+                                    }}
+                                    disabled={!isEditMode || isSubmitting}
+                                    className={`focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded ${
+                                        !isEditMode || isSubmitting
+                                            ? "cursor-not-allowed opacity-75"
+                                            : ""
+                                    }`}
+                                />
+                                <span className="text-sm text-gray-700">
+                                    {option.label}
+                                </span>
+                            </label>
+                        ))}
+                    </div>
                 );
             default:
                 return (

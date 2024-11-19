@@ -3,7 +3,7 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head } from "@inertiajs/react";
 import Table from "@/Components/Charts/Table";
 
-const Index = ({ auth, candidates, status, columns, menu }) => {
+const Index = ({ auth, candidates, status, columns, menu, viewForm }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState(null);
 
@@ -14,7 +14,7 @@ const Index = ({ auth, candidates, status, columns, menu }) => {
             menu={menu}
             header={
                 <h2 className="font-semibold text-xl text-gray-800 leading-tight">
-                    {status} Candidates
+                    {status}
                 </h2>
             }
         >
@@ -30,6 +30,7 @@ const Index = ({ auth, candidates, status, columns, menu }) => {
                                 <Table
                                     columns={columns}
                                     data={Object.values(candidates)}
+                                    viewForm={viewForm}
                                 />
                             </div>
                         </div>

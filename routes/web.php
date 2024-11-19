@@ -78,7 +78,7 @@ Route::middleware(['external.auth'])->group(function () {
     // Candidates routes
     Route::prefix('candidates')->name('candidates.')->group(function () {
         Route::get('/no-contact', [CandidateController::class, 'noContactList'])->name('no-contact');
-        Route::get('/{id}/edit', [CandidateController::class, 'edit'])->name('edit');
+        Route::get('{viewForm}/{id}/edit', [CandidateController::class, 'edit'])->name('edit');
         Route::post('/store', [CandidateController::class, 'store'])->name('store');
     });
     Route::get('/{name}/{call}', [CandidateController::class, 'getCandidatePage'])->name('candidates.page');

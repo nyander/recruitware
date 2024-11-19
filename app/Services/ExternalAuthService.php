@@ -502,6 +502,7 @@ class ExternalAuthService
                 'saveData' => $this->vSetts['SaveData']?? '',
                 'buttons' => $this->vSetts['Buttons']?? '',
                 'popups' => $this->vSetts['Popups']?? '',
+                'lookups' => $this->vSetts['Lookups']?? '',
             ];
 
 
@@ -553,42 +554,20 @@ class ExternalAuthService
             'menu' => $this->getMenuData(),
             'vsetts'=> $this->vSetts,
         ];
+        
 
-        // dd($structuredData);
-        //vData is where we contian all the information required on the getFormSettings
 
         return $structuredData;
-        
-        //loadColTemplates($ty);
     }
 
     public function updateCandidate($saveUrl, $saveDataChanges){
-        //DEFAULT URL
-        // dd($saveUrl, $saveDataChanges);
-        
+
         $v1=array();
         $v1['url']=$saveUrl;
         $v1['is-post']='1'; // Change this to 0 on getFormSettings
         $v1['return-type']='Text'; // 'Doc' for getFormSettings'
         $v1['data']=$saveDataChanges;
-
-        // dd("calling updateCandidate" , $content, $v1);
-        // dd($content, $v1);
         $this->getDataUrl($v1);
-        
-        // dd($this->vText);
-        // $structuredData = [
-        //     // 'columns' => $colLs,
-        //     'data' => $this->vData,
-        //     'menu' => $this->getMenuData(),
-        //     'vsetts'=> $this->vSetts,
-        // ];
-
-        //vData is where we contian all the information required on the getFormSettings
-
-        // return $structuredData;
-        
-        //loadColTemplates($ty);
     }
 
 
@@ -725,7 +704,7 @@ class ExternalAuthService
                 $type = $parts[1] ?? 'Text';
                 $options = [];
 
-                if ($type === 'Select' && isset($parts[2])) {
+                if (($type === 'Select'|| $type === 'Checkbox')  && isset($parts[2])) {
                     $optionPairs = explode('@@', $parts[2]);
                     foreach ($optionPairs as $pair) {
                         $pairParts = explode('|', $pair);

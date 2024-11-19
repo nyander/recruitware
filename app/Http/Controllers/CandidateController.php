@@ -66,7 +66,7 @@ class CandidateController extends Controller
     return array_merge($commonColumns, $statusSpecificColumns[$status] ?? []);
 }
 
-public function renderCandidateView($status, $viewName, $candidateData)
+public function renderCandidateView($status,$viewform, $viewName, $candidateData)
 {
     $candidates = $candidateData["data"];
     $columns = $candidateData["columns"];
@@ -99,57 +99,15 @@ public function renderCandidateView($status, $viewName, $candidateData)
             'clientName' => $userData['clientName'] ?? '',
             'defaultLocation' => $userData['defaultlocation'] ?? '',
         ],
+        'viewForm' => $viewform,
     ]);
 }
 
     public function getCandidatePage(Request $request, $name, $call)
     {
         $candidateData = $this->externalAuthService->collectionUserSettings($call);
-        return $this->renderCandidateView($name, 'Index', $candidateData);
-    }
-
-    public function live()
-    {
-        $candidateData = $this->externalAuthService->collectionUserSettings('Live_Candidates');
-        // make a call to userColumns and dataSource in externalAuthService
-        return $this->renderCandidateView('live', 'Index', $candidateData);
-    }
-
-    public function new()
-    {
-        $candidateData = $this->externalAuthService->collectionUserSettings('New_Candidates');
-        return $this->renderCandidateView('new', 'Index', $candidateData);
-    }
-
-    public function audit()
-    {
-        $candidateData = $this->externalAuthService->collectionUserSettings('Audit_Candidates');
-        return $this->renderCandidateView('audit', 'Index', $candidateData);
-    }
-
-    public function pending()
-    {
-        $candidateData = $this->externalAuthService->collectionUserSettings('Pending_Candidates');
-        // dd($candidateData);
-        return $this->renderCandidateView('pending', 'Index', $candidateData);
-    }
-
-    public function leavers()
-    {
-        $candidateData = $this->externalAuthService->collectionUserSettings('Leavers_Candidates');
-        return $this->renderCandidateView('leaver', 'Index', $candidateData);
-    }
-
-    public function archive()
-    {
-        $candidateData = $this->externalAuthService->collectionUserSettings('Archive_Candidates');
-        return $this->renderCandidateView('archived', 'Index', $candidateData);
-    }
-
-    public function noContactList()
-    {
-        $candidateData = $this->externalAuthService->collectionUserSettings('NoContactList_Candidates');
-        return $this->renderCandidateView('no_contact', 'Index', $candidateData);
+        $viewform = $candidateData['vsetts']['viewform']; 
+        return $this->renderCandidateView($name, $viewform,'Index', $candidateData);
     }
 
     
@@ -178,6 +136,8 @@ public function renderCandidateView($status, $viewName, $candidateData)
         $changes = $request->input('changes');
         $saveUrl = $request->input('saveUrl');
         $saveData = $request->input('saveData');
+
+        // dd($changes);
         
         // Process the changes to replace $Author with session authID
         $processedChanges = collect($changes)->map(function ($value, $key) {
@@ -213,14 +173,13 @@ public function renderCandidateView($status, $viewName, $candidateData)
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Request $request, $id)
+    public function edit(Request $request,  $viewForm,$id)
     {
-        
-        $getUserSettingsString = "Fields|Candidate";
+        $getUserSettingsString = "Fields|".$viewForm;
         $formFields = $this->externalAuthService->collectionFormSettings($getUserSettingsString)['sets'];
         $structuredFormFields = $this->externalAuthService->structureFormFields($formFields);
 
-        $getUserSettingsString = "Form|Candidate|" . $id;
+        $getUserSettingsString = "Form|".$viewForm."|". $id;
         $formSettings = $this->externalAuthService->collectionFormSettings($getUserSettingsString);
         $menu = $this->externalAuthService->getMenuData();
 
