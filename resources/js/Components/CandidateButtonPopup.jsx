@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import CandidateForm from "./CandidateForm";
+import { FormFields } from "./FormFields";
 
-const CandidateButtonPopup = ({
+const ButtonPopup = ({
     isOpen,
     onClose,
     popup,
@@ -10,55 +10,37 @@ const CandidateButtonPopup = ({
     formSettings,
     handleSubmit,
     isSubmitting,
+    isTablePopup = false,
 }) => {
     const [formData, setFormData] = useState({});
     const [changedFields, setChangedFields] = useState({});
     const [initialFormValues, setInitialFormValues] = useState({});
 
-    // Initialize form data when formSettings and popup fields are available
     useEffect(() => {
-        if (formSettings?.data && popup?.fields) {
+        const initializeFormData = () => {
             const initialValues = {};
-
-            popup.fields.forEach((field) => {
-                // Make the field name case insensitive matching
-                const matchingKey = Object.keys(formSettings.data).find(
+            popup?.fields?.forEach((field) => {
+                const matchingKey = Object.keys(formSettings?.data || {}).find(
                     (key) => key.toLowerCase() === field.toLowerCase()
                 );
-
-                // Add both original field name and matched field name to cover all cases
-                if (matchingKey) {
-                    initialValues[field] = formSettings.data[matchingKey];
-                    initialValues[matchingKey] = formSettings.data[matchingKey];
-                } else {
-                    initialValues[field] = "";
-                }
+                initialValues[field] = matchingKey
+                    ? formSettings.data[matchingKey]
+                    : "";
             });
-
             setFormData(initialValues);
             setInitialFormValues(initialValues);
-            setChangedFields({}); // Reset changed fields when popup data changes
+        };
 
-            // Debug logging
-            console.log("Popup Initial Values:", initialValues);
-            console.log("Form Settings Data:", formSettings.data);
-            console.log("Popup Fields:", popup.fields);
-        }
+        initializeFormData();
+        setChangedFields({});
     }, [formSettings, popup]);
 
     const handleFieldChange = (field, value) => {
-        console.log("Field Change:", field, value); // Debug logging
+        setFormData((prev) => ({
+            ...prev,
+            [field]: value,
+        }));
 
-        setFormData((prev) => {
-            const newData = {
-                ...prev,
-                [field]: value,
-            };
-            console.log("Updated Form Data:", newData); // Debug logging
-            return newData;
-        });
-
-        // Track changes compared to initial values
         if (value !== initialFormValues[field]) {
             setChangedFields((prev) => ({
                 ...prev,
@@ -72,46 +54,46 @@ const CandidateButtonPopup = ({
         }
     };
 
-    const handleFormSubmit = (buttonUpdates) => {
-        // Combine changed fields with button updates
-        const submissionData = {
-            ...changedFields,
-            ...buttonUpdates,
+    const renderField = (field) => {
+        const fieldInfo = formFields[field];
+        if (!fieldInfo) return null;
+
+        const commonProps = {
+            field,
+            fieldInfo,
+            value: formData[field] || "",
+            onChange: handleFieldChange,
+            isDisabled: isSubmitting,
+            formFields,
         };
 
-        // Log submission data
-        console.log("Submitting Data:", submissionData);
-        console.log("Changed Fields:", changedFields);
-        console.log("Button Updates:", buttonUpdates);
-
-        handleSubmit(submissionData);
+        const FieldComponent =
+            FormFields[fieldInfo.type?.toLowerCase()] || FormFields.default;
+        return (
+            <div>
+                <label className="block text-sm font-medium text-gray-700">
+                    {fieldInfo.label || field}
+                </label>
+                <FieldComponent {...commonProps} />
+            </div>
+        );
     };
 
-    // Debug render logging
-    // console.log('Rendering CandidateButtonPopup with form data:', formData);
-
-    if (!popup || !popup.fields) return null;
+    if (!popup?.fields) return null;
 
     return (
         <div
             className={`fixed inset-0 overflow-y-auto z-50 ${
                 !isOpen && "hidden"
             }`}
-            aria-labelledby="modal-title"
-            role="dialog"
-            aria-modal="true"
         >
             <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                 <div
                     className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-                    aria-hidden="true"
                     onClick={onClose}
-                ></div>
+                />
 
-                <span
-                    className="hidden sm:inline-block sm:align-middle sm:h-screen"
-                    aria-hidden="true"
-                >
+                <span className="hidden sm:inline-block sm:align-middle sm:h-screen">
                     &#8203;
                 </span>
 
@@ -124,7 +106,6 @@ const CandidateButtonPopup = ({
                             <button
                                 onClick={onClose}
                                 className="rounded-md text-gray-400 hover:text-gray-500 focus:outline-none"
-                                type="button"
                             >
                                 <XMarkIcon className="h-6 w-6" />
                             </button>
@@ -140,22 +121,8 @@ const CandidateButtonPopup = ({
                         >
                             {popup.fields.map((field) => (
                                 <div key={field} className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700">
-                                        {formFields[field]?.label || field}
-                                    </label>
                                     <div className="mt-1">
-                                        <CandidateForm
-                                            formFields={{
-                                                [field]: formFields[field],
-                                            }}
-                                            handleFieldChange={
-                                                handleFieldChange
-                                            }
-                                            isEditMode={true}
-                                            formData={formData}
-                                            isSubmitting={isSubmitting}
-                                            activeTab=""
-                                        />
+                                        {renderField(field)}
                                     </div>
                                 </div>
                             ))}
@@ -167,11 +134,13 @@ const CandidateButtonPopup = ({
                             <button
                                 key={index}
                                 type="button"
-                                onClick={() =>
-                                    button.action === "closePopup"
-                                        ? onClose()
-                                        : handleFormSubmit(button.updates || {})
-                                }
+                                onClick={() => {
+                                    if (button.action === "closePopup") {
+                                        onClose();
+                                        return;
+                                    }
+                                    handleSubmit(button.updates || {});
+                                }}
                                 disabled={isSubmitting}
                                 className={`${
                                     button.action === "closePopup"
@@ -193,4 +162,4 @@ const CandidateButtonPopup = ({
     );
 };
 
-export default CandidateButtonPopup;
+export default ButtonPopup;

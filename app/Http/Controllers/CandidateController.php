@@ -66,7 +66,7 @@ class CandidateController extends Controller
     return array_merge($commonColumns, $statusSpecificColumns[$status] ?? []);
 }
 
-public function renderCandidateView($status,$viewform, $viewName, $candidateData)
+public function renderCandidateView($status,$viewform, $viewName, $candidateData, $structuredFormFields, $disableRowClick)
 {
     $candidates = $candidateData["data"];
     $columns = $candidateData["columns"];
@@ -100,15 +100,41 @@ public function renderCandidateView($status,$viewform, $viewName, $candidateData
             'defaultLocation' => $userData['defaultlocation'] ?? '',
         ],
         'viewForm' => $viewform,
+        'buttons' => $candidateData['buttons'] ?? null,
+        'popups' => $candidateData['popups'] ?? null,
+        'structuredFormFields' => $structuredFormFields,
+        'disableRowClick' => $disableRowClick
     ]);
 }
 
-    public function getCandidatePage(Request $request, $name, $call)
-    {
-        $candidateData = $this->externalAuthService->collectionUserSettings($call);
-        $viewform = $candidateData['vsetts']['viewform']; 
-        return $this->renderCandidateView($name, $viewform,'Index', $candidateData);
-    }
+public function getCandidatePage(Request $request, $name, $call)
+{
+    $candidateData = $this->externalAuthService->collectionUserSettings($call);
+    $viewForm = $candidateData['vsetts']['viewform']; 
+    
+    // dd($candidateData); 
+    
+    // Add buttons and popups to the data being passed to the view
+    $candidateData['buttons'] = $candidateData['vsetts']['Buttons'] ?? null;
+    $candidateData['popups'] = $candidateData['vsetts']['Popups'] ?? null;
+    // Check and sanitize disableRowClick
+    $disableRowClickRaw = $candidateData['vsetts']['disableRowClick'] ?? false;
+
+    // Clean the value by removing HTML tags and trimming
+    $disableRowClickClean = strip_tags(trim($disableRowClickRaw));
+
+    // Convert to a boolean
+    $disableRowClick = filter_var($disableRowClickClean, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
+
+    $getUserSettingsString = "Fields|".$viewForm;
+    $formFields = $this->externalAuthService->collectionFormSettings($getUserSettingsString)['sets'];
+    $structuredFormFields = $this->externalAuthService->structureFormFields($formFields);
+
+    // dd($candidateData['buttons'], $candidateData['popups']);
+    
+    return $this->renderCandidateView($name, $viewForm, 'Index', $candidateData, $structuredFormFields, $disableRowClick);
+}
 
     
 

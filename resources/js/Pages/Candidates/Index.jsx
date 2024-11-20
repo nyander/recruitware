@@ -3,7 +3,18 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head } from "@inertiajs/react";
 import Table from "@/Components/Charts/Table";
 
-const Index = ({ auth, candidates, status, columns, menu, viewForm }) => {
+const Index = ({
+    auth,
+    candidates,
+    status,
+    columns,
+    menu,
+    viewForm,
+    buttons,
+    popups,
+    structuredFormFields,
+    disableRowClick,
+}) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState(null);
 
@@ -18,7 +29,7 @@ const Index = ({ auth, candidates, status, columns, menu, viewForm }) => {
                 </h2>
             }
         >
-            <Head title={`${status} Candidates`} />
+            <Head title={`${status} ${viewForm}`} />
 
             <div className="py-12">
                 <div className="max-w-7xl mx-auto lg:px-2">
@@ -31,6 +42,10 @@ const Index = ({ auth, candidates, status, columns, menu, viewForm }) => {
                                     columns={columns}
                                     data={Object.values(candidates)}
                                     viewForm={viewForm}
+                                    buttons={buttons}
+                                    popups={popups}
+                                    structuredFormFields={structuredFormFields}
+                                    disableRowClick={disableRowClick}
                                 />
                             </div>
                         </div>

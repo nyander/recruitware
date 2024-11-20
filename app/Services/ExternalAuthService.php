@@ -704,12 +704,12 @@ class ExternalAuthService
                 $type = $parts[1] ?? 'Text';
                 $options = [];
 
-                if (($type === 'Select'|| $type === 'Checkbox')  && isset($parts[2])) {
+                if (($type === 'Select'|| $type === 'Checkbox' || $type ==='Lookup')  && isset($parts[2])) {
                     $optionPairs = explode('@@', $parts[2]);
                     foreach ($optionPairs as $pair) {
                         $pairParts = explode('|', $pair);
                         if (count($pairParts) === 2) {
-                            $options[] = ['value' => $pairParts[0], 'label' => $pairParts[1]];
+                            $options[] = ['label' => $pairParts[0], 'value' => $pairParts[1]];
                         } else {
                             $options[] = ['value' => $pair, 'label' => $pair];
                         }

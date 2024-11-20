@@ -1,6 +1,5 @@
 import { usePage } from "@inertiajs/react";
-import React, { useState, useEffect } from "react";
-import { useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const AttachmentField = ({
     field,
@@ -15,8 +14,6 @@ const AttachmentField = ({
     const [uploadStatus, setUploadStatus] = useState("");
     const [iframeKey, setIframeKey] = useState(`iframe_${field}_${Date.now()}`);
     const iframeRef = useRef(null);
-    const formRef = useRef(null);
-    const fileInputRef = useRef(null);
     const { fldr } = usePage().props;
     const [isIframeLoading, setIsIframeLoading] = useState(true);
 
@@ -26,26 +23,19 @@ const AttachmentField = ({
                 if (event.data.field === field) {
                     const rawFileLocation = event.data.fileLocation;
                     if (rawFileLocation) {
-                        // Encode spaces in the file location
                         const encodedFileLocation = rawFileLocation.replace(
                             /\s+/g,
                             "%20"
                         );
 
-                        setFilename(rawFileLocation); // Keep original filename for display
-                        handleInputChange(field, encodedFileLocation); // Use encoded version for storage/transmission
+                        setFilename(rawFileLocation);
+                        handleInputChange(field, encodedFileLocation);
                         setUploadStatus("File uploaded successfully");
 
-                        // Extract file ID if present in the path
                         const matches = rawFileLocation.match(/\/([^\/]+)_/);
                         if (matches && matches[1]) {
                             setFileId(matches[1]);
-                            setFileLocation(encodedFileLocation); // Store encoded version
-                            console.log("Original location:", rawFileLocation);
-                            console.log(
-                                "Encoded location:",
-                                encodedFileLocation
-                            );
+                            setFileLocation(encodedFileLocation);
                         }
                     }
                 }
@@ -54,11 +44,10 @@ const AttachmentField = ({
 
         window.addEventListener("message", handleFileUploaded);
 
-        // Initialize with existing value if present
         if (value) {
             const encodedValue = value.replace(/\s+/g, "%20");
-            setFilename(value); // Keep original for display
-            setFileLocation(encodedValue); // Store encoded version
+            setFilename(value);
+            setFileLocation(encodedValue);
         }
 
         return () => {
@@ -72,15 +61,8 @@ const AttachmentField = ({
         handleInputChange(field, "");
         setUploadStatus("");
 
-        // Generate a new key to force iframe reload
         setIframeKey(`iframe_${field}_${Date.now()}`);
 
-        // If you have a form reference, reset it
-        if (formRef.current) {
-            formRef.current.reset();
-        }
-
-        // Alternative approach: reload iframe directly
         if (iframeRef.current) {
             const currentSrc = iframeRef.current.src;
             iframeRef.current.src = "about:blank";
@@ -92,7 +74,6 @@ const AttachmentField = ({
 
     const handleIframeLoad = () => {
         setIsIframeLoading(false);
-        console.log("iframe loaded with field:", field);
     };
 
     return (
