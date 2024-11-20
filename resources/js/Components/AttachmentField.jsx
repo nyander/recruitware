@@ -2,11 +2,11 @@ import { usePage } from "@inertiajs/react";
 import React, { useState, useEffect, useRef } from "react";
 
 const AttachmentField = ({
-    field,
-    value,
-    isEditMode,
-    isSubmitting,
-    handleInputChange,
+    field = "",
+    value = "",
+    isEditMode = false,
+    isSubmitting = false,
+    handleInputChange = () => {},
 }) => {
     const [filename, setFilename] = useState("");
     const [fileId, setFileId] = useState("");
