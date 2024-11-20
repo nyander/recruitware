@@ -491,11 +491,11 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
                 isOpen={!!activePopup}
                 onClose={() => setActivePopup(null)}
                 popup={activePopup}
-                formFields={formFields}
+                formFields={formFields} // This is correct
                 formSettings={formSettings}
-                formData={currentFormValues}
                 handleSubmit={handlePopupSubmit}
                 isSubmitting={isSubmitting}
+                formData={currentFormValues}
             />
         </AuthenticatedLayout>
     );
