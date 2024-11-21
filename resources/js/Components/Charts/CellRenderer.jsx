@@ -28,6 +28,12 @@ const extractPopupParams = (onClickAttr) => {
     };
 };
 
+const decodeHTMLEntities = (text) => {
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = text;
+    return textarea.value;
+};
+
 const CellRenderer = ({ value }) => {
     const [isHovered, setIsHovered] = useState(false);
     const popupContext = useContext(PopupContext);
@@ -72,11 +78,27 @@ const CellRenderer = ({ value }) => {
 
     const isHTML =
         typeof value === "string" &&
-        (value.includes("<span") || value.includes("<div"));
+        (value.includes("<") || value.includes("&") || value.includes("~")); // Include tilde since your data uses it as a separator
 
     if (!isHTML) {
         return value;
     }
+
+    // Split the value by tildes and process each part
+    const parts = value.split("~").map((part, index) => {
+        // Decode HTML entities in each part
+        const decodedPart = decodeHTMLEntities(part);
+
+        // If it's a monetary value (contains £), wrap it in a span for styling
+        if (part.includes("&pound;")) {
+            return `<span class="font-medium">${decodedPart}</span>`;
+        }
+
+        return decodedPart;
+    });
+
+    // Join the parts back with spaces or any desired separator
+    const processedValue = parts.join(" "); // or join with " • " for better visual separation
 
     return (
         <div
@@ -87,7 +109,7 @@ const CellRenderer = ({ value }) => {
             <div
                 className="inline-flex gap-1 items-center"
                 dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(value, {
+                    __html: DOMPurify.sanitize(processedValue, {
                         ADD_ATTR: ["onclick", "title"],
                         ADD_TAGS: ["span"],
                     }),

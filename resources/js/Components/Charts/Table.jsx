@@ -158,29 +158,77 @@ const Table = ({
                 const initialData = {};
                 fields.forEach((field, index) => {
                     let value = values[index] || "";
-
-                    // Handle field types (select, time, etc.)
                     const fieldInfo = structuredFormFields?.[field];
                     const fieldType = fieldInfo?.type?.toLowerCase();
 
-                    if (fieldType === "select") {
-                        const matchingOption = fieldInfo?.options?.find(
-                            (option) => option.value === value
-                        );
-                        initialData[field] = matchingOption
-                            ? matchingOption.value
-                            : "";
-                    } else if (fieldType === "time" || fieldType === "date") {
-                        initialData[field] = value.trim();
-                    } else {
-                        initialData[field] = value;
+                    // Align with FormFields.jsx type handling
+                    switch (fieldType) {
+                        case "select":
+                            // Use the same logic as FormFields select component
+                            const options = getSelectOptions(
+                                field,
+                                fieldInfo,
+                                structuredFormFields
+                            );
+                            const matchingOption = options.find(
+                                (opt) => opt.value === value
+                            );
+                            initialData[field] = matchingOption
+                                ? matchingOption.value
+                                : "";
+                            break;
+
+                        case "checkbox":
+                            // Handle checkbox values as array/multiple selection
+                            initialData[field] = value
+                                ? value.split(";").filter(Boolean)
+                                : [];
+                            break;
+
+                        case "html":
+                            // Preserve HTML content
+                            initialData[field] = value;
+                            break;
+
+                        case "readonly":
+                            // Handle readonly fields
+                            initialData[field] = value;
+                            break;
+
+                        case "attach":
+                            // Handle attachment fields
+                            initialData[field] = value;
+                            break;
+
+                        default:
+                            // Default handling for text and other types
+                            initialData[field] = value;
                     }
                 });
 
-                // Find the popup configuration
+                // Helper function to get select options (copied from FormFields.jsx)
+                const getSelectOptions = (field, fieldInfo, formFields) => {
+                    if (fieldInfo?.options?.length) {
+                        const firstOption = fieldInfo.options[0]?.value;
+
+                        if (
+                            typeof firstOption === "string" &&
+                            firstOption.startsWith("[LOOKUP-")
+                        ) {
+                            const lookupName = firstOption.slice(8, -1);
+                            const lookupField = formFields[lookupName];
+
+                            if (lookupField?.type === "Lookup") {
+                                return lookupField.options || [];
+                            }
+                        }
+                    }
+                    return fieldInfo.options || [];
+                };
+
+                // Find the popup configuration and open it
                 const popupConfig = parsedPopups[popupId];
                 if (popupConfig) {
-                    // Create merged popup configuration
                     const mergedPopup = {
                         ...popupConfig,
                         initialData,
@@ -188,10 +236,8 @@ const Table = ({
                         saveData: formSettings?.saveData || "",
                     };
 
-                    // Immediately open the popup
                     setActivePopup(mergedPopup);
 
-                    // Update selected cell state if needed
                     const cellKey = `${cellInfo.row.id}-${cellInfo.column.id}`;
                     setSelectedCells(singleSelectMode ? [cellKey] : [cellKey]);
                     setSelectedCellData([
