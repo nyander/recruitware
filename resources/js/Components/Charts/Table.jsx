@@ -469,7 +469,7 @@ const Table = ({
                                                                 column: cell.column,
                                                             });
                                                         }}
-                                                        className={`px-6 py-4 whitespace-nowrap ${
+                                                        className={`px-2 py-2 whitespace-nowrap ${
                                                             disableRowClick
                                                                 ? "cursor-pointer hover:bg-gray-100"
                                                                 : ""

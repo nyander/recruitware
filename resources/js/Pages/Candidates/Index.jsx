@@ -14,19 +14,16 @@ const Index = ({
     popups,
     structuredFormFields,
     disableRowClick,
-    vsetts, // Add this prop if you're getting form settings from backend
+    vsetts,
 }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState(null);
 
-    // Create formSettings object from vsetts or other backend data
     const formSettings = {
-        saveURL: vsetts?.SaveUrl || "", // Adjust property names based on your backend data
+        saveURL: vsetts?.SaveUrl || "",
         saveData: vsetts?.SaveData || "",
-        // Add any other form settings you need
     };
 
-    // Log the props to help with debugging
     console.log("Index Component Props:", {
         buttons,
         popups,
@@ -48,11 +45,17 @@ const Index = ({
         >
             <Head title={`${status} ${viewForm}`} />
 
-            <div className="py-12">
-                <div className="max-w-7xl mx-auto lg:px-2">
-                    <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                        <div className="p-6 text-gray-900">
-                            <div className="h-[calc(100vh-300px)]">
+            <div className="flex-grow">
+                <div className="mx-auto max-w-screen-xl h-full">
+                    {/* Adjusted max-width and ensured full height */}
+                    <div className="bg-white h-full overflow-hidden shadow-sm sm:rounded-lg">
+                        <div className="p-6 text-gray-900 h-full">
+                            <div
+                                className="h-full max-h-full overflow-y-auto"
+                                style={{
+                                    margin: "0 auto",
+                                }}
+                            >
                                 <Table
                                     columns={columns}
                                     data={Object.values(candidates)}
@@ -60,7 +63,7 @@ const Index = ({
                                     buttons={buttons}
                                     popups={popups}
                                     structuredFormFields={structuredFormFields}
-                                    formSettings={formSettings} // Add this prop
+                                    formSettings={formSettings}
                                     disableRowClick={disableRowClick}
                                 />
                             </div>

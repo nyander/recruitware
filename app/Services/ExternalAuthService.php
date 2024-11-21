@@ -381,6 +381,8 @@ class ExternalAuthService
             if ($i1 > 0) {
                 // dd($val);
                 if ($args['return-type'] == 'View') {
+                   
+                    
                     
                     $a1 = preg_split('/\|/', $val);
                     if (count($a1) > 2) {

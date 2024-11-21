@@ -165,6 +165,8 @@ public function getCandidatePage(Request $request, $name, $call)
             $saveUrl = $request->input('saveUrl');
             $saveData = $request->input('saveData');
 
+            dd($changes,$saveUrl, $saveData );
+
             // Process the changes to replace $Author with session authID
             $processedChanges = collect($changes)->map(function ($value, $key) {
                 if ($value === '$Author$' || $value === '$Author') {
