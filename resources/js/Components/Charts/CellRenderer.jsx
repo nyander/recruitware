@@ -1,28 +1,29 @@
 import React, { useState, useContext } from "react";
 import DOMPurify from "dompurify";
-import { PopupContext } from "../PopupContext"; // Make sure the import path is correct
+import { PopupContext } from "../PopupContext";
 
 const extractPopupParams = (onClickAttr) => {
     if (!onClickAttr) return null;
 
+    // Match the runPopButton pattern
     const match = onClickAttr.match(
         /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/
     );
     if (!match) return null;
 
-    const [_, popupId, fields, values] = match;
-    const fieldArray = fields.split("~");
-    const valueArray = values.split("~");
+    // Extract components
+    const [_, popupId, fieldsString, valuesString] = match;
+    const fields = fieldsString.split("~");
+    const values = valuesString.split("~");
 
+    // Create initial data object mapping fields to values
     const initialData = {};
-    fieldArray.forEach((field, index) => {
-        initialData[field] = valueArray[index] || "";
+    fields.forEach((field, index) => {
+        initialData[field] = values[index] || "";
     });
 
     return {
         popupId,
-        fields: fieldArray,
-        values: valueArray,
         initialData,
     };
 };
@@ -46,7 +47,9 @@ const CellRenderer = ({ value }) => {
 
             if (popupParams) {
                 e.preventDefault();
+                e.stopPropagation();
 
+                // Get popup configuration from formSettings
                 const popupConfig = formSettings[popupParams.popupId];
                 if (!popupConfig) {
                     console.error(
@@ -55,11 +58,13 @@ const CellRenderer = ({ value }) => {
                     return;
                 }
 
+                // Create popup data with initial values
                 const popupData = {
                     ...popupConfig,
                     initialData: popupParams.initialData,
                 };
 
+                // Set active popup with initial data
                 setActivePopup(popupData);
             }
         }

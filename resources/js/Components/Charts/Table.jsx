@@ -12,11 +12,14 @@ const Table = ({
     buttons,
     popups,
     structuredFormFields,
+    formSettings = {}, // Add this with a default empty object
     disableRowClick = false,
+    singleSelectMode = true,
 }) => {
     const [activePopup, setActivePopup] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedCells, setSelectedCells] = useState([]);
+    const [selectedCellData, setSelectedCellData] = useState([]); // Store onclick data
     const [parsedButtons, setParsedButtons] = useState([]);
     const [parsedPopups, setParsedPopups] = useState({});
 
@@ -27,14 +30,51 @@ const Table = ({
         }
     }, [buttons, popups]);
 
+    const extractPopupParams = (onClickAttr) => {
+        if (!onClickAttr) return null;
+
+        const match = onClickAttr.match(
+            /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/
+        );
+        if (!match) return null;
+
+        const [_, popupId, fieldsString, valuesString] = match;
+        const fields = fieldsString.split("~");
+        const values = valuesString.split("~");
+
+        const initialData = {};
+        fields.forEach((field, index) => {
+            initialData[field] = values[index] || "";
+        });
+
+        return {
+            popupId,
+            fields,
+            values,
+            initialData,
+        };
+    };
+
     const parseButtonsAndPopups = (buttonString, popupString) => {
         // Parse buttons
         const buttonsList = buttonString.split("@@").map((buttonStr) => {
-            const [name, icon, popupId] = buttonStr.split(";");
+            const [
+                name,
+                icon,
+                popupId,
+                fieldString,
+                valueString,
+                saveUrl,
+                saveData,
+            ] = buttonStr.split(";");
             return {
                 name,
                 icon,
                 popupId: popupId?.replace("loadPop_", ""),
+                fields: fieldString ? fieldString.split("~") : [],
+                values: valueString ? valueString.split("~") : [],
+                saveUrl: saveUrl || "", // Add saveUrl
+                saveData: saveData || "", // Add saveData
             };
         });
         setParsedButtons(buttonsList);
@@ -43,6 +83,8 @@ const Table = ({
         const popupsMap = {};
         popupString.split("@@").forEach((popupStr) => {
             const [id, title, columns, fields, buttonStr] = popupStr.split("~");
+
+            // Parse popup buttons
             const popupButtons = buttonStr.split("$$").map((btn) => {
                 const [name, ...actions] = btn.split(";");
                 if (actions.length === 1 && actions[0] === "closePopup()") {
@@ -90,33 +132,132 @@ const Table = ({
     };
 
     // Handle cell clicks
+    // Handle cell selection
     const handleCellClick = (cellInfo) => {
         if (!disableRowClick) {
             handleRowClick(cellInfo.row);
             return;
         }
 
-        setSelectedCells((prev) => {
-            const cellKey = `${cellInfo.row.id}-${cellInfo.column.id}`;
-            const isCellSelected = prev.includes(cellKey);
+        const cell = cellInfo.cell;
+        const cellKey = `${cellInfo.row.id}-${cellInfo.column.id}`;
+        const cellContent = cell.value || "";
 
-            if (isCellSelected) {
-                return prev.filter((key) => key !== cellKey);
-            } else {
-                return [...prev, cellKey];
-            }
-        });
+        // Extract runPopButton parameters
+        const runPopButtonMatch =
+            typeof cellContent === "string"
+                ? cellContent.match(
+                      /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/
+                  )
+                : null;
+
+        if (runPopButtonMatch) {
+            const [_, popupId, fieldsString, valuesString] = runPopButtonMatch;
+            const fields = fieldsString.split("~");
+            const values = valuesString.split("~");
+
+            // Create initial data object mapping fields to values
+            const initialData = {};
+            fields.forEach((field, index) => {
+                let value = values[index] || "";
+
+                // Handle field types (select, time, etc.)
+                const fieldInfo = structuredFormFields?.[field];
+                const fieldType = fieldInfo?.type?.toLowerCase();
+
+                if (fieldType === "select") {
+                    // For select fields, ensure value matches an available option
+                    const matchingOption = fieldInfo?.options?.find(
+                        (option) => option.value === value
+                    );
+                    initialData[field] = matchingOption
+                        ? matchingOption.value
+                        : "";
+                } else if (fieldType === "time") {
+                    initialData[field] = value.trim(); // Ensure time values are clean
+                } else if (fieldType === "date") {
+                    initialData[field] = value.trim(); // Ensure date values are clean
+                } else {
+                    initialData[field] = value; // Default handling
+                }
+            });
+
+            const popupParams = {
+                popupId,
+                fields,
+                values,
+                initialData,
+            };
+
+            // Debug log
+            console.log("Cell with runPopButton selected:", {
+                popupId,
+                fields,
+                values,
+                initialData,
+            });
+
+            // Set selected cells and update popup params
+            setSelectedCells((prev) => {
+                const newSelection = singleSelectMode
+                    ? [cellKey]
+                    : prev.includes(cellKey)
+                    ? prev.filter((key) => key !== cellKey)
+                    : [...prev, cellKey];
+
+                // Update selected cell data
+                setSelectedCellData((prevData) => {
+                    if (singleSelectMode) {
+                        return [
+                            {
+                                cellKey,
+                                popupParams,
+                                content: cellContent,
+                                originalCell: cell,
+                            },
+                        ];
+                    }
+
+                    const isCellSelected = prevData.some(
+                        (data) => data.cellKey === cellKey
+                    );
+                    if (isCellSelected) {
+                        return prevData.filter(
+                            (data) => data.cellKey !== cellKey
+                        );
+                    }
+
+                    return [
+                        ...prevData,
+                        {
+                            cellKey,
+                            popupParams,
+                            content: cellContent,
+                            originalCell: cell,
+                        },
+                    ];
+                });
+
+                return newSelection;
+            });
+        }
     };
 
-    const handlePopupSubmit = async (updates) => {
+    const handlePopupSubmit = async (updates, button) => {
+        console.log("I am working - ", button);
         try {
+            console.log(buttons);
             setIsSubmitting(true);
             await router.post(route("candidates.store"), {
                 changes: updates,
-                saveUrl: activePopup?.saveUrl || formSettings?.saveURL,
-                saveData: activePopup?.saveData || formSettings?.saveData,
+                saveUrl: activePopup?.saveUrl || formSettings?.saveURL || "",
+                saveData: activePopup?.saveData || formSettings?.saveData || "",
             });
             setActivePopup(null);
+
+            // Clear selections after successful submission
+            setSelectedCells([]);
+            setSelectedCellData([]);
         } catch (error) {
             console.error("Popup submission error:", error);
         } finally {
@@ -162,31 +303,107 @@ const Table = ({
     const popupContextValue = {
         setActivePopup,
         formFields: structuredFormFields,
-        formSettings: popups,
-        handlePopupSubmit,
+        formSettings: {
+            ...popups,
+            // Safely access saveURL and saveData
+            saveUrl: formSettings?.saveURL || "",
+            saveData: formSettings?.saveData || "",
+        },
+        handlePopupSubmit: async (updates) => {
+            try {
+                setIsSubmitting(true);
+
+                // Include the selected cell's data in updates
+                const selectedData = selectedCellData[0];
+                const mergedUpdates = {
+                    ...updates,
+                    ...(selectedData?.popupParams?.initialData || {}),
+                };
+
+                await handlePopupSubmit(mergedUpdates);
+
+                // Clear selections after successful submission
+                setSelectedCells([]);
+                setSelectedCellData([]);
+                setActivePopup(null);
+            } catch (error) {
+                console.error("Error submitting popup:", error);
+            } finally {
+                setIsSubmitting(false);
+            }
+        },
     };
 
     return (
         <PopupContext.Provider value={popupContextValue}>
             <div className="flex flex-col h-full">
+                {/* Selection Mode Indicator */}
+                {/* <div className="mb-4 flex items-center justify-between">
+                    <div className="text-sm text-gray-500">
+                        Selection Mode:{" "}
+                        {singleSelectMode ? "Single" : "Multiple"}
+                    </div>
+                    {selectedCells.length > 0 && (
+                        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                            <h3 className="text-sm font-medium text-gray-700">
+                                Selected Cells Data:
+                            </h3>
+                            <pre className="mt-2 text-xs overflow-auto max-h-40">
+                                {JSON.stringify(selectedCellData, null, 2)}
+                            </pre>
+                        </div>
+                    )}
+                </div> */}
                 {/* Buttons section */}
                 {parsedButtons.length > 0 && (
                     <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 mb-4">
                         <div className="flex gap-2 justify-end">
-                            {parsedButtons.map((button, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() =>
-                                        setActivePopup(
-                                            parsedPopups[button.popupId]
-                                        )
-                                    }
-                                    disabled={isSubmitting}
-                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                >
-                                    {button.name}
-                                </button>
-                            ))}
+                            {parsedButtons.map((button, index) => {
+                                const selectedData = selectedCellData[0]; // Check the first selection
+                                const hasValidSelection =
+                                    selectedData &&
+                                    selectedData.popupParams &&
+                                    selectedData.popupParams.popupId ===
+                                        button.popupId;
+
+                                return (
+                                    <button
+                                        key={index}
+                                        onClick={() => {
+                                            const popupConfig =
+                                                parsedPopups[button.popupId];
+                                            if (popupConfig) {
+                                                const mergedPopup = {
+                                                    ...popupConfig,
+                                                    initialData: selectedData
+                                                        ? selectedData
+                                                              .popupParams
+                                                              .initialData
+                                                        : {}, // Default to empty object if no selection
+                                                    saveUrl:
+                                                        button.saveUrl ||
+                                                        popupConfig.saveUrl ||
+                                                        "", // Pass saveUrl
+                                                    saveData:
+                                                        button.saveData ||
+                                                        popupConfig.saveData ||
+                                                        "", // Pass saveData
+                                                };
+                                                setActivePopup(mergedPopup);
+                                            }
+                                        }}
+                                        className={`
+                    inline-flex items-center px-4 py-2 border border-transparent 
+                    text-sm font-medium rounded-md text-white 
+                    bg-indigo-600 hover:bg-indigo-700 
+                    focus:outline-none focus:ring-2 focus:ring-offset-2 
+                    focus:ring-indigo-500
+                `}
+                                    >
+                                        {button.name}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
@@ -253,23 +470,22 @@ const Table = ({
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             handleCellClick({
-                                                                row,
+                                                                cell: cell,
+                                                                row: row,
                                                                 column: cell.column,
                                                             });
                                                         }}
-                                                        className={`px-6 py-4 whitespace-nowrap 
-                                                            ${
-                                                                disableRowClick
-                                                                    ? "cursor-pointer hover:bg-gray-100"
-                                                                    : ""
-                                                            } 
-                                                            ${
-                                                                selectedCells.includes(
-                                                                    `${row.id}-${cell.column.id}`
-                                                                )
-                                                                    ? "bg-blue-100"
-                                                                    : ""
-                                                            }`}
+                                                        className={`px-6 py-4 whitespace-nowrap ${
+                                                            disableRowClick
+                                                                ? "cursor-pointer hover:bg-gray-100"
+                                                                : ""
+                                                        } ${
+                                                            selectedCells.includes(
+                                                                `${row.id}-${cell.column.id}`
+                                                            )
+                                                                ? "bg-blue-100"
+                                                                : ""
+                                                        }`}
                                                     >
                                                         {cell.render("Cell")}
                                                     </td>

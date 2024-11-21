@@ -14,9 +14,26 @@ const Index = ({
     popups,
     structuredFormFields,
     disableRowClick,
+    vsetts, // Add this prop if you're getting form settings from backend
 }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState(null);
+
+    // Create formSettings object from vsetts or other backend data
+    const formSettings = {
+        saveURL: vsetts?.SaveUrl || "", // Adjust property names based on your backend data
+        saveData: vsetts?.SaveData || "",
+        // Add any other form settings you need
+    };
+
+    // Log the props to help with debugging
+    console.log("Index Component Props:", {
+        buttons,
+        popups,
+        structuredFormFields,
+        vsetts,
+        formSettings,
+    });
 
     return (
         <AuthenticatedLayout
@@ -36,8 +53,6 @@ const Index = ({
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div className="p-6 text-gray-900">
                             <div className="h-[calc(100vh-300px)]">
-                                {" "}
-                                {/* Adjust the height as needed */}
                                 <Table
                                     columns={columns}
                                     data={Object.values(candidates)}
@@ -45,6 +60,7 @@ const Index = ({
                                     buttons={buttons}
                                     popups={popups}
                                     structuredFormFields={structuredFormFields}
+                                    formSettings={formSettings} // Add this prop
                                     disableRowClick={disableRowClick}
                                 />
                             </div>

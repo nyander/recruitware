@@ -34,33 +34,35 @@ const CandidateButtonPopup = ({
     useEffect(() => {
         if (!popup?.fields || !formFields) return;
 
+        // Use popup's initial data to populate the form
+        const initialValues = { ...popup.initialData } || {};
+
         console.log("Popup Fields:", popup.fields); // Log the fields passed to the popup
         console.log("FormFields Info:", formFields); // Log the form fields object
 
-        const initialValues = {};
+        // Populate initial values for the fields
         popup.fields.forEach((field) => {
-            const fieldInfo = formFields[field];
-            if (!fieldInfo) {
-                console.log(`No field info found for: ${field}`);
-                return;
+            if (!(field in initialValues)) {
+                initialValues[field] = formSettings?.data?.[field] || ""; // Use defaults if missing
             }
 
-            if (formSettings?.data) {
-                const matchingKey = Object.keys(formSettings.data).find(
-                    (key) => key.toLowerCase() === field.toLowerCase()
+            // Check for field-specific initialization (e.g., select fields)
+            const fieldInfo = formFields[field];
+            if (fieldInfo?.type?.toLowerCase() === "select") {
+                // Ensure the field has the correct pre-selected value if options are available
+                const matchingOption = fieldInfo.options?.find(
+                    (option) => option.value === initialValues[field]
                 );
-                initialValues[field] = matchingKey
-                    ? formSettings.data[matchingKey]
-                    : "";
+                initialValues[field] = matchingOption
+                    ? matchingOption.value
+                    : ""; // Default to empty if no match
             }
         });
 
-        // console.log("Initial Values:", initialValues); // Log the calculated initial values
-
-        setFormData(initialValues);
-        setInitialFormValues(initialValues);
-        setChangedFields({});
-    }, [popup?.id]); // Refine dependencies
+        setFormData(initialValues); // Set the form's initial data state
+        setInitialFormValues(initialValues); // Track original values
+        setChangedFields({}); // Reset changed fields
+    }, [popup?.id, popup?.initialData]);
 
     const handleFieldChange = (field, value) => {
         if (isSubmitting) return;

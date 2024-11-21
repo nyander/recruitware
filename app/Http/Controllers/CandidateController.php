@@ -103,7 +103,8 @@ public function renderCandidateView($status,$viewform, $viewName, $candidateData
         'buttons' => $candidateData['buttons'] ?? null,
         'popups' => $candidateData['popups'] ?? null,
         'structuredFormFields' => $structuredFormFields,
-        'disableRowClick' => $disableRowClick
+        'disableRowClick' => $disableRowClick,
+        'vsetts' => $candidateData['vsetts'],
     ]);
 }
 
@@ -131,7 +132,7 @@ public function getCandidatePage(Request $request, $name, $call)
     $formFields = $this->externalAuthService->collectionFormSettings($getUserSettingsString)['sets'];
     $structuredFormFields = $this->externalAuthService->structureFormFields($formFields);
 
-    // dd($candidateData['buttons'], $candidateData['popups']);
+    // dd($candidateData, $structuredFormFields);
     
     return $this->renderCandidateView($name, $viewForm, 'Index', $candidateData, $structuredFormFields, $disableRowClick);
 }
@@ -159,33 +160,39 @@ public function getCandidatePage(Request $request, $name, $call)
      */
     public function store(Request $request)
     {
-        $changes = $request->input('changes');
-        $saveUrl = $request->input('saveUrl');
-        $saveData = $request->input('saveData');
+        try {
+            $changes = $request->input('changes');
+            $saveUrl = $request->input('saveUrl');
+            $saveData = $request->input('saveData');
 
-        // dd($changes);
-        
-        // Process the changes to replace $Author with session authID
-        $processedChanges = collect($changes)->map(function ($value, $key) {
-            if ($value === '$Author$' || $value === '$Author') {
-                return session('userName');
-            }
-            if ($value === '$AuthorID$' || $value === '$AuthorID') {
-                return session('authID');
-            }
-            return $value;
-        })->all();
-        
-        $formattedChanges = $this->formatChangesForUrl($processedChanges);
-        $saveDataChanges = $this->appendChangesToUrl($saveData, $formattedChanges);
+            // Process the changes to replace $Author with session authID
+            $processedChanges = collect($changes)->map(function ($value, $key) {
+                if ($value === '$Author$' || $value === '$Author') {
+                    return session('userName');
+                }
+                if ($value === '$AuthorID$' || $value === '$AuthorID') {
+                    return session('authID');
+                }
+                return $value;
+            })->all();
 
-        // dd($saveUrl, $saveDataChanges);
+            $formattedChanges = $this->formatChangesForUrl($processedChanges);
+            $saveDataChanges = $this->appendChangesToUrl($saveData, $formattedChanges);
 
-        $this->externalAuthService->updateCandidate($saveUrl, $saveDataChanges);
-        
-        return redirect()->back()
-                ->with('success', 'Form submitted successfully!');
+            // Perform the external update
+            $this->externalAuthService->updateCandidate($saveUrl, $saveDataChanges);
+
+            // Flash success message to the session
+            return redirect()->back()
+                ->with('success', 'Changes have been submitted successfully!');
+        } catch (\Exception $e) {
+            // Log the error and flash an error message
+            Log::error('Error submitting changes: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Failed to submit changes. Please try again.');
+        }
     }
+
 
 
     /**
