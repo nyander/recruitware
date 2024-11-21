@@ -140,113 +140,80 @@ const Table = ({
         }
 
         const cell = cellInfo.cell;
-        const cellKey = `${cellInfo.row.id}-${cellInfo.column.id}`;
-        const cellContent = cell.value || "";
+        const cellValue = cell.value || "";
 
-        // Extract runPopButton parameters
-        const runPopButtonMatch =
-            typeof cellContent === "string"
-                ? cellContent.match(
-                      /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/
-                  )
-                : null;
+        // Check if the cell content contains a runPopButton function call
+        if (typeof cellValue === "string") {
+            const runPopButtonMatch = cellValue.match(
+                /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/
+            );
 
-        if (runPopButtonMatch) {
-            const [_, popupId, fieldsString, valuesString] = runPopButtonMatch;
-            const fields = fieldsString.split("~");
-            const values = valuesString.split("~");
+            if (runPopButtonMatch) {
+                const [_, popupId, fieldsString, valuesString] =
+                    runPopButtonMatch;
+                const fields = fieldsString.split("~");
+                const values = valuesString.split("~");
 
-            // Create initial data object mapping fields to values
-            const initialData = {};
-            fields.forEach((field, index) => {
-                let value = values[index] || "";
+                // Create initial data object mapping fields to values
+                const initialData = {};
+                fields.forEach((field, index) => {
+                    let value = values[index] || "";
 
-                // Handle field types (select, time, etc.)
-                const fieldInfo = structuredFormFields?.[field];
-                const fieldType = fieldInfo?.type?.toLowerCase();
+                    // Handle field types (select, time, etc.)
+                    const fieldInfo = structuredFormFields?.[field];
+                    const fieldType = fieldInfo?.type?.toLowerCase();
 
-                if (fieldType === "select") {
-                    // For select fields, ensure value matches an available option
-                    const matchingOption = fieldInfo?.options?.find(
-                        (option) => option.value === value
-                    );
-                    initialData[field] = matchingOption
-                        ? matchingOption.value
-                        : "";
-                } else if (fieldType === "time") {
-                    initialData[field] = value.trim(); // Ensure time values are clean
-                } else if (fieldType === "date") {
-                    initialData[field] = value.trim(); // Ensure date values are clean
-                } else {
-                    initialData[field] = value; // Default handling
-                }
-            });
-
-            const popupParams = {
-                popupId,
-                fields,
-                values,
-                initialData,
-            };
-
-            // Debug log
-            console.log("Cell with runPopButton selected:", {
-                popupId,
-                fields,
-                values,
-                initialData,
-            });
-
-            // Set selected cells and update popup params
-            setSelectedCells((prev) => {
-                const newSelection = singleSelectMode
-                    ? [cellKey]
-                    : prev.includes(cellKey)
-                    ? prev.filter((key) => key !== cellKey)
-                    : [...prev, cellKey];
-
-                // Update selected cell data
-                setSelectedCellData((prevData) => {
-                    if (singleSelectMode) {
-                        return [
-                            {
-                                cellKey,
-                                popupParams,
-                                content: cellContent,
-                                originalCell: cell,
-                            },
-                        ];
-                    }
-
-                    const isCellSelected = prevData.some(
-                        (data) => data.cellKey === cellKey
-                    );
-                    if (isCellSelected) {
-                        return prevData.filter(
-                            (data) => data.cellKey !== cellKey
+                    if (fieldType === "select") {
+                        const matchingOption = fieldInfo?.options?.find(
+                            (option) => option.value === value
                         );
+                        initialData[field] = matchingOption
+                            ? matchingOption.value
+                            : "";
+                    } else if (fieldType === "time" || fieldType === "date") {
+                        initialData[field] = value.trim();
+                    } else {
+                        initialData[field] = value;
                     }
-
-                    return [
-                        ...prevData,
-                        {
-                            cellKey,
-                            popupParams,
-                            content: cellContent,
-                            originalCell: cell,
-                        },
-                    ];
                 });
 
-                return newSelection;
-            });
+                // Find the popup configuration
+                const popupConfig = parsedPopups[popupId];
+                if (popupConfig) {
+                    // Create merged popup configuration
+                    const mergedPopup = {
+                        ...popupConfig,
+                        initialData,
+                        saveUrl: formSettings?.saveURL || "",
+                        saveData: formSettings?.saveData || "",
+                    };
+
+                    // Immediately open the popup
+                    setActivePopup(mergedPopup);
+
+                    // Update selected cell state if needed
+                    const cellKey = `${cellInfo.row.id}-${cellInfo.column.id}`;
+                    setSelectedCells(singleSelectMode ? [cellKey] : [cellKey]);
+                    setSelectedCellData([
+                        {
+                            cellKey,
+                            popupParams: {
+                                popupId,
+                                fields,
+                                values,
+                                initialData,
+                            },
+                            content: cellValue,
+                            originalCell: cell,
+                        },
+                    ]);
+                }
+            }
         }
     };
 
-    const handlePopupSubmit = async (updates, button) => {
-        console.log("I am working - ", button);
+    const handlePopupSubmit = async (updates) => {
         try {
-            console.log(buttons);
             setIsSubmitting(true);
             await router.post(route("candidates.store"), {
                 changes: updates,
@@ -254,8 +221,6 @@ const Table = ({
                 saveData: activePopup?.saveData || formSettings?.saveData || "",
             });
             setActivePopup(null);
-
-            // Clear selections after successful submission
             setSelectedCells([]);
             setSelectedCellData([]);
         } catch (error) {
@@ -337,23 +302,6 @@ const Table = ({
     return (
         <PopupContext.Provider value={popupContextValue}>
             <div className="flex flex-col h-full">
-                {/* Selection Mode Indicator */}
-                {/* <div className="mb-4 flex items-center justify-between">
-                    <div className="text-sm text-gray-500">
-                        Selection Mode:{" "}
-                        {singleSelectMode ? "Single" : "Multiple"}
-                    </div>
-                    {selectedCells.length > 0 && (
-                        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                            <h3 className="text-sm font-medium text-gray-700">
-                                Selected Cells Data:
-                            </h3>
-                            <pre className="mt-2 text-xs overflow-auto max-h-40">
-                                {JSON.stringify(selectedCellData, null, 2)}
-                            </pre>
-                        </div>
-                    )}
-                </div> */}
                 {/* Buttons section */}
                 {parsedButtons.length > 0 && (
                     <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 mb-4">
