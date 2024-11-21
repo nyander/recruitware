@@ -1,19 +1,78 @@
-import { useState } from "react";
+import React, { useState, useContext } from "react";
 import DOMPurify from "dompurify";
+import { PopupContext } from "../PopupContext"; // Make sure the import path is correct
+
+const extractPopupParams = (onClickAttr) => {
+    if (!onClickAttr) return null;
+
+    const match = onClickAttr.match(
+        /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/
+    );
+    if (!match) return null;
+
+    const [_, popupId, fields, values] = match;
+    const fieldArray = fields.split("~");
+    const valueArray = values.split("~");
+
+    const initialData = {};
+    fieldArray.forEach((field, index) => {
+        initialData[field] = valueArray[index] || "";
+    });
+
+    return {
+        popupId,
+        fields: fieldArray,
+        values: valueArray,
+        initialData,
+    };
+};
 
 const CellRenderer = ({ value }) => {
     const [isHovered, setIsHovered] = useState(false);
+    const popupContext = useContext(PopupContext);
 
-    // Check if the value is HTML content
+    if (!popupContext) {
+        console.warn("PopupContext not found in CellRenderer");
+        return value;
+    }
+
+    const { setActivePopup, formFields, formSettings } = popupContext;
+
+    const handleClick = (e) => {
+        const target = e.target;
+        if (target.hasAttribute("onclick")) {
+            const onClickValue = target.getAttribute("onclick");
+            const popupParams = extractPopupParams(onClickValue);
+
+            if (popupParams) {
+                e.preventDefault();
+
+                const popupConfig = formSettings[popupParams.popupId];
+                if (!popupConfig) {
+                    console.error(
+                        `Popup configuration not found for ID: ${popupParams.popupId}`
+                    );
+                    return;
+                }
+
+                const popupData = {
+                    ...popupConfig,
+                    initialData: popupParams.initialData,
+                };
+
+                setActivePopup(popupData);
+            }
+        }
+    };
+
     const isHTML =
         typeof value === "string" &&
         (value.includes("<span") || value.includes("<div"));
 
     if (!isHTML) {
-        return value; // Return plain text if not HTML
+        return value;
     }
 
-    // For HTML content, render it safely
     return (
         <div
             className={`relative ${isHovered ? "z-50" : "z-0"}`}
@@ -24,42 +83,11 @@ const CellRenderer = ({ value }) => {
                 className="inline-flex gap-1 items-center"
                 dangerouslySetInnerHTML={{
                     __html: DOMPurify.sanitize(value, {
-                        ADD_ATTR: ["onclick", "title"], // Allow specific attributes
-                        ADD_TAGS: ["span"], // Allow specific tags
+                        ADD_ATTR: ["onclick", "title"],
+                        ADD_TAGS: ["span"],
                     }),
                 }}
-                onClick={(e) => {
-                    // Extract and handle onclick events
-                    const target = e.target;
-                    if (target.hasAttribute("onclick")) {
-                        const onClickValue = target.getAttribute("onclick");
-                        if (onClickValue.includes("runPopButton")) {
-                            try {
-                                // Parse the runPopButton parameters
-                                const matches = onClickValue.match(
-                                    /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/
-                                );
-                                if (matches) {
-                                    const [_, popupId, fields, values] =
-                                        matches;
-                                    e.preventDefault();
-                                    // You can handle the popup trigger here
-                                    console.log("Popup triggered:", {
-                                        popupId,
-                                        fields,
-                                        values,
-                                    });
-                                    // TODO: Implement your popup handling logic
-                                }
-                            } catch (error) {
-                                console.error(
-                                    "Error parsing onclick event:",
-                                    error
-                                );
-                            }
-                        }
-                    }
-                }}
+                onClick={handleClick}
             />
         </div>
     );

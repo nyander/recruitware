@@ -15,8 +15,27 @@ const CandidateButtonPopup = ({
     const [changedFields, setChangedFields] = useState({});
     const [initialFormValues, setInitialFormValues] = useState({});
 
+    const handleButtonClick = (button) => {
+        if (button.action === "closePopup") {
+            onClose();
+            return;
+        }
+
+        const updatedData = {
+            ...formData,
+            ...button.updates,
+        };
+
+        console.log("Button Click - Updated Data:", updatedData);
+
+        handleSubmit(updatedData);
+    };
+
     useEffect(() => {
         if (!popup?.fields || !formFields) return;
+
+        console.log("Popup Fields:", popup.fields); // Log the fields passed to the popup
+        console.log("FormFields Info:", formFields); // Log the form fields object
 
         const initialValues = {};
         popup.fields.forEach((field) => {
@@ -36,11 +55,12 @@ const CandidateButtonPopup = ({
             }
         });
 
-        console.log("Initialized values:", initialValues);
+        // console.log("Initial Values:", initialValues); // Log the calculated initial values
+
         setFormData(initialValues);
         setInitialFormValues(initialValues);
         setChangedFields({});
-    }, [popup, formFields, formSettings]);
+    }, [popup?.id]); // Refine dependencies
 
     const handleFieldChange = (field, value) => {
         if (isSubmitting) return;
@@ -61,12 +81,24 @@ const CandidateButtonPopup = ({
         }
     };
 
+    useEffect(() => {
+        console.log("Popup Open:", isOpen);
+        console.log("Popup Config:", popup);
+        console.log("Form Data on Open:", formData);
+    }, [isOpen, popup, formData]);
+
     const renderField = (field) => {
         const fieldInfo = formFields[field];
         if (!fieldInfo) {
             console.log(`No field info found for: ${field}`);
             return null;
         }
+
+        console.log("Rendering Field:", {
+            field,
+            fieldInfo,
+            value: formData[field],
+        });
 
         const commonProps = {
             field,
@@ -143,16 +175,7 @@ const CandidateButtonPopup = ({
                             <button
                                 key={index}
                                 type="button"
-                                onClick={() => {
-                                    if (button.action === "closePopup") {
-                                        onClose();
-                                        return;
-                                    }
-                                    handleSubmit({
-                                        ...changedFields,
-                                        ...button.updates,
-                                    });
-                                }}
+                                onClick={() => handleButtonClick(button)}
                                 disabled={isSubmitting}
                                 className={`${
                                     button.action === "closePopup"
