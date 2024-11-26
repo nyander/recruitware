@@ -1,9 +1,83 @@
-import React, { useState, useMemo } from "react";
-import { useTable, useSortBy, usePagination } from "react-table";
+import React, { useState, useMemo, useEffect } from "react";
+import {
+    useTable,
+    useSortBy,
+    usePagination,
+    useGlobalFilter,
+} from "react-table";
 import { PopupContext } from "../PopupContext";
 import CellRenderer from "./CellRenderer";
 import ButtonPopup from "../CandidateButtonPopup";
 import { router } from "@inertiajs/react";
+import { Search, Filter, ChevronDown, X } from "lucide-react";
+
+// Update the MultiSelectDropdown component to handle disabled state
+const MultiSelectDropdown = ({
+    options,
+    value = [],
+    onChange,
+    placeholder,
+    unavailableSelections = [],
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    const displayValue = value.length
+        ? `${value.length} selected${
+              unavailableSelections.length
+                  ? ` (${unavailableSelections.length} filtered)`
+                  : ""
+          }`
+        : placeholder;
+
+    return (
+        <div className="relative">
+            <div
+                onClick={() => setIsOpen(!isOpen)}
+                className={`w-full border rounded-md p-2 cursor-pointer flex justify-between items-center bg-white
+                    ${
+                        unavailableSelections.length > 0
+                            ? "border-yellow-300"
+                            : ""
+                    }`}
+            >
+                <span className="text-sm truncate">{displayValue}</span>
+                <ChevronDown
+                    className={`w-4 h-4 transform ${
+                        isOpen ? "rotate-180" : ""
+                    }`}
+                />
+            </div>
+            {isOpen && (
+                <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                    {options.length === 0 && (
+                        <div className="p-2 text-sm text-gray-500 italic">
+                            No options available with current filters
+                        </div>
+                    )}
+                    {options.map((option, index) => (
+                        <label
+                            key={index}
+                            className="flex items-center p-2 hover:bg-gray-50"
+                        >
+                            <input
+                                type="checkbox"
+                                checked={value.includes(option)}
+                                onChange={(e) => {
+                                    const newValue = e.target.checked
+                                        ? [...value, option]
+                                        : value.filter((v) => v !== option);
+                                    onChange(newValue);
+                                }}
+                                className="mr-2"
+                            />
+                            <span className="text-sm">{option}</span>
+                        </label>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const Table = ({
     columns: initialColumns,
@@ -12,19 +86,215 @@ const Table = ({
     buttons,
     popups,
     structuredFormFields,
-    formSettings = {}, // Add this with a default empty object
+    formSettings = {},
     disableRowClick = false,
     singleSelectMode = true,
+    vsetts = {}, // Add vsetts prop
 }) => {
     const [activePopup, setActivePopup] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedCells, setSelectedCells] = useState([]);
-    const [selectedCellData, setSelectedCellData] = useState([]); // Store onclick data
+    const [selectedCellData, setSelectedCellData] = useState([]);
     const [parsedButtons, setParsedButtons] = useState([]);
     const [parsedPopups, setParsedPopups] = useState({});
+    const [searchValue, setSearchValue] = useState("");
+    const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+    const [visibleColumns, setVisibleColumns] = useState(() =>
+        initialColumns.map((col) =>
+            typeof col === "string" ? col : col.Header
+        )
+    );
+    const [filterValues, setFilterValues] = useState({});
+    const [showColumnSelector, setShowColumnSelector] = useState(false);
+    const [crucialFilters, setCrucialFilters] = useState([]);
+
+    // Parse crucial filters from vsetts on mount
+    useEffect(() => {
+        if (vsetts.tablefilters) {
+            const filters = vsetts.tablefilters
+                .split(";")
+                .map((filter) => filter.trim());
+            console.log("Crucial Filters:", filters);
+            console.log("Table Filters from vsetts:", vsetts.tablefilters);
+            setCrucialFilters(filters);
+        }
+    }, [vsetts.tablefilters]);
+
+    const renderCrucialFilters = () => {
+        if (!crucialFilters.length) return null;
+
+        return (
+            <div className="flex flex-wrap gap-4 mt-4">
+                {crucialFilters.map((filterName) => {
+                    const availableOptions =
+                        dependentColumnValues[filterName] || [];
+                    const selectedValues = filterValues[filterName] || [];
+
+                    // Calculate unavailable options (options that were previously selected but are no longer available)
+                    const unavailableSelections = selectedValues.filter(
+                        (value) => !availableOptions.includes(value)
+                    );
+
+                    return (
+                        <div key={filterName} className="flex-1 min-w-[200px]">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                {filterName}
+                                <span className="text-xs text-gray-500 ml-2">
+                                    ({availableOptions.length} available)
+                                </span>
+                            </label>
+                            <MultiSelectDropdown
+                                options={availableOptions}
+                                value={selectedValues}
+                                onChange={(values) =>
+                                    handleFilterChange(filterName, values)
+                                }
+                                placeholder={`Select ${filterName}`}
+                                unavailableSelections={unavailableSelections}
+                            />
+
+                            {/* Show selected values as tags */}
+                            {selectedValues.length > 0 && (
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                    {selectedValues.map((value) => (
+                                        <span
+                                            key={value}
+                                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                                                ${
+                                                    unavailableSelections.includes(
+                                                        value
+                                                    )
+                                                        ? "bg-red-100 text-red-800"
+                                                        : "bg-blue-100 text-blue-800"
+                                                }`}
+                                        >
+                                            {value}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const newValues =
+                                                        selectedValues.filter(
+                                                            (v) => v !== value
+                                                        );
+                                                    handleFilterChange(
+                                                        filterName,
+                                                        newValues
+                                                    );
+                                                }}
+                                                className="flex-shrink-0 ml-1 h-4 w-4 rounded-full inline-flex items-center justify-center hover:bg-blue-200 focus:outline-none"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
+    // Extract unique values for each column for filters
+    // Enhance uniqueColumnValues to handle HTML content
+    const uniqueColumnValues = useMemo(() => {
+        const values = {};
+        const processData = Array.isArray(rawData)
+            ? rawData
+            : Object.values(rawData);
+
+        console.log("Processing columns for filters:", initialColumns);
+        console.log("Crucial filters to process:", crucialFilters);
+
+        // First process crucial filters to ensure they're included
+        crucialFilters.forEach((filterName) => {
+            const uniqueVals = new Set();
+            processData.forEach((row) => {
+                // Try both direct and lowercase key
+                let value = row[filterName] || row[filterName?.toLowerCase()];
+                if (value !== undefined && value !== null && value !== "") {
+                    // Remove HTML tags if present
+                    value = value.toString().replace(/<[^>]*>/g, "");
+                    uniqueVals.add(value);
+                }
+            });
+            values[filterName] = Array.from(uniqueVals).sort();
+            console.log(`Values for ${filterName}:`, values[filterName]);
+        });
+
+        // Then process remaining columns
+        initialColumns.forEach((col) => {
+            const columnId = typeof col === "string" ? col : col.Header;
+            if (!values[columnId]) {
+                const uniqueVals = new Set();
+                processData.forEach((row) => {
+                    let value = row[columnId] || row[columnId?.toLowerCase()];
+                    if (value !== undefined && value !== null && value !== "") {
+                        // Remove HTML tags if present
+                        value = value.toString().replace(/<[^>]*>/g, "");
+                        uniqueVals.add(value);
+                    }
+                });
+                values[columnId] = Array.from(uniqueVals).sort();
+            }
+        });
+
+        return values;
+    }, [rawData, initialColumns, crucialFilters]);
+
+    const dependentColumnValues = useMemo(() => {
+        console.log("Calculating dependent values with filters:", filterValues);
+
+        // Get the base dataset
+        const dataset = Array.isArray(rawData)
+            ? rawData
+            : Object.values(rawData);
+
+        // Filter the dataset based on all current filter selections
+        const filteredData = dataset.filter((row) => {
+            // Check if the row matches all current filter selections
+            return Object.entries(filterValues).every(
+                ([columnName, selectedValues]) => {
+                    if (!selectedValues || selectedValues.length === 0)
+                        return true;
+
+                    const rowValue = (
+                        row[columnName] || row[columnName?.toLowerCase()]
+                    )?.toString();
+                    return selectedValues.includes(rowValue);
+                }
+            );
+        });
+
+        console.log("Filtered dataset length:", filteredData.length);
+
+        // Calculate available options for each column based on filtered data
+        const availableOptions = {};
+
+        crucialFilters.forEach((columnName) => {
+            const uniqueValues = new Set();
+
+            filteredData.forEach((row) => {
+                const value = (
+                    row[columnName] || row[columnName?.toLowerCase()]
+                )?.toString();
+                if (value !== undefined && value !== null && value !== "") {
+                    uniqueValues.add(value);
+                }
+            });
+
+            availableOptions[columnName] = Array.from(uniqueValues).sort();
+        });
+
+        // Log available options for debugging
+        console.log("Available options for filters:", availableOptions);
+
+        return availableOptions;
+    }, [rawData, filterValues, crucialFilters]);
 
     // Parse buttons and popups on mount
-    React.useEffect(() => {
+    useEffect(() => {
         if (buttons && popups) {
             parseButtonsAndPopups(buttons, popups);
         }
@@ -73,8 +343,8 @@ const Table = ({
                 popupId: popupId?.replace("loadPop_", ""),
                 fields: fieldString ? fieldString.split("~") : [],
                 values: valueString ? valueString.split("~") : [],
-                saveUrl: saveUrl || "", // Add saveUrl
-                saveData: saveData || "", // Add saveData
+                saveUrl: saveUrl || "",
+                saveData: saveData || "",
             };
         });
         setParsedButtons(buttonsList);
@@ -84,7 +354,6 @@ const Table = ({
         popupString.split("@@").forEach((popupStr) => {
             const [id, title, columns, fields, buttonStr] = popupStr.split("~");
 
-            // Parse popup buttons
             const popupButtons = buttonStr.split("$$").map((btn) => {
                 const [name, ...actions] = btn.split(";");
                 if (actions.length === 1 && actions[0] === "closePopup()") {
@@ -113,7 +382,6 @@ const Table = ({
         setParsedPopups(popupsMap);
     };
 
-    // Handle row clicks
     const handleRowClick = (row) => {
         if (disableRowClick) return;
 
@@ -131,42 +399,31 @@ const Table = ({
         );
     };
 
-    // Handle cell clicks
-    // Handle cell selection
     const handleCellClick = (cellInfo) => {
-        // Extract cell and its value early to avoid scoping issues
-        const { cell, row } = cellInfo;
-        const cellValue = cell?.value || ""; // Safely extract cell value
-
-        console.log("Cell Data:", cellValue);
-
-        // If row clicks are enabled, handle the row click instead of cell click
         if (!disableRowClick) {
-            handleRowClick(row); // Use row click handler
+            handleRowClick(cellInfo.row);
             return;
         }
 
-        // Check if the cell value contains a `runPopButton` function call
+        const cell = cellInfo.cell;
+        const cellValue = cell.value || "";
+
         if (typeof cellValue === "string") {
             const runPopButtonMatch = cellValue.match(
                 /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/
             );
-
             if (runPopButtonMatch) {
                 const [_, popupId, fieldsString, valuesString] =
                     runPopButtonMatch;
-
-                // Split fields and values and map them
                 const fields = fieldsString.split("~");
                 const values = valuesString.split("~");
 
                 const initialData = {};
                 fields.forEach((field, index) => {
-                    let value = values[index] || ""; // Default to empty string if value is missing
+                    let value = values[index] || "";
                     const fieldInfo = structuredFormFields?.[field];
                     const fieldType = fieldInfo?.type?.toLowerCase();
 
-                    // Handle field types
                     switch (fieldType) {
                         case "select":
                             const options = getSelectOptions(
@@ -181,48 +438,19 @@ const Table = ({
                                 ? matchingOption.value
                                 : "";
                             break;
-
                         case "checkbox":
                             initialData[field] = value
                                 ? value.split(";").filter(Boolean)
                                 : [];
                             break;
-
                         case "html":
-                            initialData[field] = value; // Preserve HTML content
-                            break;
-
                         case "readonly":
                         case "attach":
-                            initialData[field] = value;
-                            break;
-
                         default:
-                            initialData[field] = value; // Default case
+                            initialData[field] = value;
                     }
                 });
 
-                // Helper function to get select options
-                const getSelectOptions = (field, fieldInfo, formFields) => {
-                    if (fieldInfo?.options?.length) {
-                        const firstOption = fieldInfo.options[0]?.value;
-
-                        if (
-                            typeof firstOption === "string" &&
-                            firstOption.startsWith("[LOOKUP-")
-                        ) {
-                            const lookupName = firstOption.slice(8, -1);
-                            const lookupField = formFields[lookupName];
-
-                            if (lookupField?.type === "Lookup") {
-                                return lookupField.options || [];
-                            }
-                        }
-                    }
-                    return fieldInfo.options || [];
-                };
-
-                // Find the popup configuration and open it
                 const popupConfig = parsedPopups[popupId];
                 if (popupConfig) {
                     const mergedPopup = {
@@ -234,7 +462,7 @@ const Table = ({
 
                     setActivePopup(mergedPopup);
 
-                    const cellKey = `${row.id}-${cell.column.id}`;
+                    const cellKey = `${cellInfo.row.id}-${cellInfo.column.id}`;
                     setSelectedCells(singleSelectMode ? [cellKey] : [cellKey]);
                     setSelectedCellData([
                         {
@@ -272,14 +500,75 @@ const Table = ({
         }
     };
 
+    const toggleColumnVisibility = (columnId) => {
+        setVisibleColumns((prev) => {
+            if (prev.includes(columnId)) {
+                return prev.filter((id) => id !== columnId);
+            }
+            return [...prev, columnId];
+        });
+    };
+
+    const handleSearch = (value) => {
+        setSearchValue(value);
+        setGlobalFilter(value);
+    };
+
+    const handleFilterChange = (columnId, values) => {
+        setFilterValues((prev) => {
+            const newFilters = {
+                ...prev,
+                [columnId]: values,
+            };
+
+            // If Location is changed, clear Job Type filter
+            if (columnId === "Location") {
+                newFilters["Job Type"] = [];
+            }
+
+            return newFilters;
+        });
+    };
+
+    const clearAllFilters = () => {
+        setFilterValues({});
+        setSearchValue("");
+        setGlobalFilter("");
+    };
+
+    // Apply filters to data
+    const filteredData = useMemo(() => {
+        let filtered = Array.isArray(rawData)
+            ? rawData
+            : Object.values(rawData);
+
+        Object.entries(filterValues).forEach(([columnId, selectedValues]) => {
+            if (selectedValues && selectedValues.length > 0) {
+                filtered = filtered.filter((row) => {
+                    const value = row[columnId] || row[columnId?.toLowerCase()];
+                    return selectedValues.includes(value?.toString());
+                });
+            }
+        });
+
+        return filtered;
+    }, [rawData, filterValues]);
+
     const columns = useMemo(
         () =>
-            initialColumns.map((col) => ({
-                Header: col,
-                accessor: (row) => row[col] || row[col.toLowerCase()] || "",
-                Cell: ({ value }) => <CellRenderer value={value} />,
-            })),
-        [initialColumns]
+            initialColumns
+                .filter((col) =>
+                    visibleColumns.includes(
+                        typeof col === "string" ? col : col.Header
+                    )
+                )
+                .map((col) => ({
+                    Header: typeof col === "string" ? col : col.Header,
+                    accessor: (row) =>
+                        row[col] || row[col?.toLowerCase()] || "",
+                    Cell: ({ value }) => <CellRenderer value={value} />,
+                })),
+        [initialColumns, visibleColumns]
     );
 
     const {
@@ -296,13 +585,15 @@ const Table = ({
         nextPage,
         previousPage,
         setPageSize,
+        setGlobalFilter,
         state: { pageIndex, pageSize },
     } = useTable(
         {
             columns,
-            data: Array.isArray(rawData) ? rawData : Object.values(rawData),
+            data: filteredData,
             initialState: { pageIndex: 0, pageSize: 10 },
         },
+        useGlobalFilter,
         useSortBy,
         usePagination
     );
@@ -311,30 +602,19 @@ const Table = ({
         setActivePopup,
         formFields: structuredFormFields,
         formSettings: {
-            popups: parsedPopups,
+            ...popups,
             saveUrl: formSettings?.saveURL || "",
             saveData: formSettings?.saveData || "",
-            data: formSettings?.data || {},
         },
-        handlePopupSubmit: async (updates, popupConfig) => {
+        handlePopupSubmit: async (updates) => {
             try {
                 setIsSubmitting(true);
-
-                // Include the active popup's saveUrl and saveData
-                const currentSaveUrl =
-                    activePopup?.saveUrl || formSettings?.saveURL || "";
-                const currentSaveData =
-                    activePopup?.saveData || formSettings?.saveData || "";
-
-                await router.post(route("candidates.store"), {
-                    changes: updates,
-                    saveUrl: currentSaveUrl,
-                    saveData: currentSaveData,
-                });
-
-                setActivePopup(null);
-                setSelectedCells([]);
-                setSelectedCellData([]);
+                const selectedData = selectedCellData[0];
+                const mergedUpdates = {
+                    ...updates,
+                    ...(selectedData?.popupParams?.initialData || {}),
+                };
+                await handlePopupSubmit(mergedUpdates);
             } catch (error) {
                 console.error("Error submitting popup:", error);
             } finally {
@@ -346,61 +626,197 @@ const Table = ({
     return (
         <PopupContext.Provider value={popupContextValue}>
             <div className="flex flex-col h-full">
-                {/* Buttons section */}
-                {parsedButtons.length > 0 && (
-                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 mb-4">
-                        <div className="flex gap-2 justify-end">
-                            {parsedButtons.map((button, index) => {
-                                const selectedData = selectedCellData[0]; // Check the first selection
-                                const hasValidSelection =
-                                    selectedData &&
-                                    selectedData.popupParams &&
-                                    selectedData.popupParams.popupId ===
-                                        button.popupId;
+                {/* Table Controls */}
+                <div className="bg-white px-4 py-3 border-b border-gray-200">
+                    <div className="flex flex-col space-y-2">
+                        {/* Top Row Controls */}
+                        <div className="flex items-center space-x-4">
+                            {/* Column Selector */}
+                            <div className="relative">
+                                <button
+                                    onClick={() =>
+                                        setShowColumnSelector(
+                                            !showColumnSelector
+                                        )
+                                    }
+                                    className="px-3 py-2 border rounded-md text-sm flex items-center space-x-2 hover:bg-gray-50"
+                                >
+                                    <span>Columns</span>
+                                    <ChevronDown className="w-4 h-4" />
+                                </button>
 
-                                return (
+                                {showColumnSelector && (
+                                    <div className="absolute z-10 mt-1 w-56 bg-white border rounded-md shadow-lg">
+                                        <div className="p-2 space-y-1">
+                                            {initialColumns.map((col) => {
+                                                const columnId =
+                                                    typeof col === "string"
+                                                        ? col
+                                                        : col.Header;
+                                                return (
+                                                    <label
+                                                        key={columnId}
+                                                        className="flex items-center space-x-2"
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={visibleColumns.includes(
+                                                                columnId
+                                                            )}
+                                                            onChange={() =>
+                                                                toggleColumnVisibility(
+                                                                    columnId
+                                                                )
+                                                            }
+                                                            className="rounded border-gray-300"
+                                                        />
+                                                        <span className="text-sm">
+                                                            {columnId}
+                                                        </span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Search Bar */}
+                            <div className="flex-1 max-w-md relative">
+                                <input
+                                    type="text"
+                                    value={searchValue}
+                                    onChange={(e) =>
+                                        handleSearch(e.target.value)
+                                    }
+                                    placeholder="Search..."
+                                    className="w-full px-4 py-2 border rounded-md pl-10"
+                                />
+                                <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                                {searchValue && (
                                     <button
-                                        key={index}
-                                        onClick={() => {
-                                            const popupConfig =
-                                                parsedPopups[button.popupId];
-                                            if (popupConfig) {
-                                                const mergedPopup = {
-                                                    ...popupConfig,
-                                                    initialData: selectedData
-                                                        ? selectedData
-                                                              .popupParams
-                                                              .initialData
-                                                        : {}, // Default to empty object if no selection
-                                                    saveUrl:
-                                                        button.saveUrl ||
-                                                        popupConfig.saveUrl ||
-                                                        "", // Pass saveUrl
-                                                    saveData:
-                                                        button.saveData ||
-                                                        popupConfig.saveData ||
-                                                        "", // Pass saveData
-                                                };
-                                                setActivePopup(mergedPopup);
-                                            }
-                                        }}
-                                        className={`
-                    inline-flex items-center px-4 py-2 border border-transparent 
-                    text-sm font-medium rounded-md text-white 
-                    bg-indigo-600 hover:bg-indigo-700 
-                    focus:outline-none focus:ring-2 focus:ring-offset-2 
-                    focus:ring-indigo-500
-                `}
+                                        onClick={() => handleSearch("")}
+                                        className="absolute right-3 top-2.5"
                                     >
-                                        {button.name}
+                                        <X className="w-4 h-4 text-gray-400" />
                                     </button>
-                                );
-                            })}
+                                )}
+                            </div>
+
+                            {/* Advanced Search Toggle */}
+                            <button
+                                onClick={() =>
+                                    setShowAdvancedSearch(!showAdvancedSearch)
+                                }
+                                className={`px-3 py-2 border rounded-md text-sm flex items-center space-x-2 hover:bg-gray-50 ${
+                                    showAdvancedSearch
+                                        ? "bg-blue-50 border-blue-200"
+                                        : ""
+                                }`}
+                            >
+                                <Filter className="w-4 h-4" />
+                                <span>Advanced</span>
+                            </button>
+
+                            {/* Clear Filters Button */}
+                            {(Object.keys(filterValues).length > 0 ||
+                                searchValue) && (
+                                <button
+                                    onClick={clearAllFilters}
+                                    className="px-3 py-2 text-sm text-red-600 hover:text-red-700"
+                                >
+                                    Clear All Filters
+                                </button>
+                            )}
+                        </div>
+
+                        {renderCrucialFilters()}
+
+                        {/* Advanced Search Panel */}
+                        {showAdvancedSearch && (
+                            <div className="p-4 border rounded-md bg-gray-50 space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {columns
+                                        .filter(
+                                            (column) =>
+                                                !crucialFilters.includes(
+                                                    column.Header
+                                                )
+                                        )
+                                        .map((column) => (
+                                            <div
+                                                key={column.Header}
+                                                className="space-y-1"
+                                            >
+                                                <label className="text-sm font-medium text-gray-700">
+                                                    {column.Header}
+                                                </label>
+                                                <MultiSelectDropdown
+                                                    options={
+                                                        uniqueColumnValues[
+                                                            column.Header
+                                                        ] || []
+                                                    }
+                                                    value={
+                                                        filterValues[
+                                                            column.Header
+                                                        ] || []
+                                                    }
+                                                    onChange={(values) =>
+                                                        handleFilterChange(
+                                                            column.Header,
+                                                            values
+                                                        )
+                                                    }
+                                                    placeholder={`Select ${column.Header}`}
+                                                />
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Buttons Section */}
+                {parsedButtons.length > 0 && (
+                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
+                        <div className="flex gap-2 justify-end">
+                            {parsedButtons.map((button, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => {
+                                        const popupConfig =
+                                            parsedPopups[button.popupId];
+                                        if (popupConfig) {
+                                            const mergedPopup = {
+                                                ...popupConfig,
+                                                initialData:
+                                                    selectedCellData[0]
+                                                        ?.popupParams
+                                                        ?.initialData || {},
+                                                saveUrl:
+                                                    button.saveUrl ||
+                                                    popupConfig.saveUrl ||
+                                                    "",
+                                                saveData:
+                                                    button.saveData ||
+                                                    popupConfig.saveData ||
+                                                    "",
+                                            };
+                                            setActivePopup(mergedPopup);
+                                        }
+                                    }}
+                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                >
+                                    {button.name}
+                                </button>
+                            ))}
                         </div>
                     </div>
                 )}
 
-                {/* Table section */}
+                {/* Table Section */}
                 <div className="flex-grow overflow-auto">
                     <div className="inline-block min-w-full align-middle">
                         <div className="overflow-hidden border-b border-gray-200 shadow sm:rounded-lg">
@@ -421,16 +837,20 @@ const Table = ({
                                                         )}
                                                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                                     >
-                                                        {column.render(
-                                                            "Header"
-                                                        )}
-                                                        <span>
-                                                            {column.isSorted
-                                                                ? column.isSortedDesc
-                                                                    ? " 🔽"
-                                                                    : " 🔼"
-                                                                : ""}
-                                                        </span>
+                                                        <div className="flex items-center space-x-1">
+                                                            <span>
+                                                                {column.render(
+                                                                    "Header"
+                                                                )}
+                                                            </span>
+                                                            <span className="text-gray-400">
+                                                                {column.isSorted
+                                                                    ? column.isSortedDesc
+                                                                        ? " ▼"
+                                                                        : " ▲"
+                                                                    : ""}
+                                                            </span>
+                                                        </div>
                                                     </th>
                                                 )
                                             )}
@@ -492,43 +912,111 @@ const Table = ({
                 </div>
 
                 {/* Pagination */}
-                <div className="mt-4 flex items-center justify-between">
-                    <div>
-                        <button
-                            onClick={() => gotoPage(0)}
-                            disabled={!canPreviousPage}
-                            className="mr-2 px-4 py-2 border rounded"
-                        >
-                            {"<<"}
-                        </button>
+                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                    <div className="flex-1 flex justify-between sm:hidden">
                         <button
                             onClick={() => previousPage()}
                             disabled={!canPreviousPage}
-                            className="mr-2 px-4 py-2 border rounded"
+                            className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 ${
+                                !canPreviousPage
+                                    ? "opacity-50 cursor-not-allowed"
+                                    : ""
+                            }`}
                         >
-                            {"<"}
+                            Previous
                         </button>
                         <button
                             onClick={() => nextPage()}
                             disabled={!canNextPage}
-                            className="mr-2 px-4 py-2 border rounded"
+                            className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 ${
+                                !canNextPage
+                                    ? "opacity-50 cursor-not-allowed"
+                                    : ""
+                            }`}
                         >
-                            {">"}
-                        </button>
-                        <button
-                            onClick={() => gotoPage(pageCount - 1)}
-                            disabled={!canNextPage}
-                            className="px-4 py-2 border rounded"
-                        >
-                            {">>"}
+                            Next
                         </button>
                     </div>
-                    <span>
-                        Page{" "}
-                        <strong>
-                            {pageIndex + 1} of {pageOptions.length}
-                        </strong>
-                    </span>
+                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div className="flex gap-x-2 items-center">
+                            <span className="text-sm text-gray-700">
+                                Page{" "}
+                                <span className="font-medium">
+                                    {pageIndex + 1}
+                                </span>{" "}
+                                of{" "}
+                                <span className="font-medium">{pageCount}</span>
+                            </span>
+                            <select
+                                value={pageSize}
+                                onChange={(e) => {
+                                    setPageSize(Number(e.target.value));
+                                }}
+                                className="ml-2 border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                {[10, 20, 30, 40, 50].map((size) => (
+                                    <option key={size} value={size}>
+                                        Show {size}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <nav
+                                className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
+                                aria-label="Pagination"
+                            >
+                                <button
+                                    onClick={() => gotoPage(0)}
+                                    disabled={!canPreviousPage}
+                                    className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 ${
+                                        !canPreviousPage
+                                            ? "opacity-50 cursor-not-allowed"
+                                            : ""
+                                    }`}
+                                >
+                                    <span className="sr-only">First</span>
+                                    {"<<"}
+                                </button>
+                                <button
+                                    onClick={() => previousPage()}
+                                    disabled={!canPreviousPage}
+                                    className={`relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 ${
+                                        !canPreviousPage
+                                            ? "opacity-50 cursor-not-allowed"
+                                            : ""
+                                    }`}
+                                >
+                                    <span className="sr-only">Previous</span>
+                                    {"<"}
+                                </button>
+                                <button
+                                    onClick={() => nextPage()}
+                                    disabled={!canNextPage}
+                                    className={`relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 ${
+                                        !canNextPage
+                                            ? "opacity-50 cursor-not-allowed"
+                                            : ""
+                                    }`}
+                                >
+                                    <span className="sr-only">Next</span>
+                                    {">"}
+                                </button>
+                                <button
+                                    onClick={() => gotoPage(pageCount - 1)}
+                                    disabled={!canNextPage}
+                                    className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 ${
+                                        !canNextPage
+                                            ? "opacity-50 cursor-not-allowed"
+                                            : ""
+                                    }`}
+                                >
+                                    <span className="sr-only">Last</span>
+                                    {">>"}
+                                </button>
+                            </nav>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Popup */}

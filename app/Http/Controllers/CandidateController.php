@@ -72,7 +72,6 @@ public function renderCandidateView($status,$viewform, $viewName, $candidateData
     $columns = $candidateData["columns"];
     $menu = $this->externalAuthService->getMenuData();
 
-
     // Get session data
     $authID = session('authID');
     $userName = session('userName');

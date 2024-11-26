@@ -65,6 +65,7 @@ const Index = ({
                                     structuredFormFields={structuredFormFields}
                                     formSettings={formSettings}
                                     disableRowClick={disableRowClick}
+                                    vsetts={vsetts}
                                 />
                             </div>
                         </div>
