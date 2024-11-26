@@ -1,30 +1,56 @@
 import React, { useState, useContext } from "react";
-import DOMPurify from "dompurify";
 import { PopupContext } from "../PopupContext";
 
+// Decode encoded fields and values (e.g., %7E to ~)
+const decodeFieldsAndValues = (string) => string.replace(/%7E/g, "~");
+
+// Extract parameters from the onclick attribute
 const extractPopupParams = (onClickAttr) => {
     if (!onClickAttr) return null;
 
-    // Match the runPopButton pattern
     const match = onClickAttr.match(
-        /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/
+        /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'\)/
     );
-    if (!match) return null;
 
-    // Extract components
-    const [_, popupId, fieldsString, valuesString] = match;
-    const fields = fieldsString.split("~");
-    const values = valuesString.split("~");
+    if (!match) {
+        console.error("No match found for onclick pattern");
+        return null;
+    }
 
-    // Create initial data object mapping fields to values
+    const [_, popupId, fieldsString, valuesString, saveUrl, saveData] = match;
+
+    // Decode and split fields and values
+    const fields = decodeFieldsAndValues(fieldsString).split("~");
+    const values = decodeFieldsAndValues(valuesString).split("~");
+
+    if (!fields || !values || fields.length !== values.length) {
+        console.error(
+            "Malformed fields or values. Ensure `~` separates fields and values."
+        );
+        return null;
+    }
+
+    // Map fields to values
     const initialData = {};
     fields.forEach((field, index) => {
-        initialData[field] = values[index] || "";
+        initialData[field.trim()] = values[index]?.trim() || "";
+    });
+
+    console.log("Extracted popup data:", {
+        popupId,
+        fields,
+        values,
+        initialData,
+        saveUrl,
+        saveData,
     });
 
     return {
         popupId,
+        fields,
         initialData,
+        saveUrl,
+        saveData: saveData.replace(/\$/g, "|"), // Replace $ with |
     };
 };
 
@@ -43,62 +69,53 @@ const CellRenderer = ({ value }) => {
         return value;
     }
 
-    const { setActivePopup, formFields, formSettings } = popupContext;
-
     const handleClick = (e) => {
-        const target = e.target;
-        if (target.hasAttribute("onclick")) {
-            const onClickValue = target.getAttribute("onclick");
+        console.log(
+            "OnClick Attribute Before Parsing:",
+            e.target.getAttribute("onclick")
+        );
+
+        if (e.target.hasAttribute("onclick")) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const onClickValue = e.target.getAttribute("onclick");
+            console.log("OnClick Value:", onClickValue);
+
             const popupParams = extractPopupParams(onClickValue);
-
-            if (popupParams) {
-                e.preventDefault();
-                e.stopPropagation();
-
-                // Get popup configuration from formSettings
-                const popupConfig = formSettings[popupParams.popupId];
-                if (!popupConfig) {
-                    console.error(
-                        `Popup configuration not found for ID: ${popupParams.popupId}`
-                    );
-                    return;
-                }
-
-                // Create popup data with initial values
-                const popupData = {
-                    ...popupConfig,
-                    initialData: popupParams.initialData,
-                };
-
-                // Set active popup with initial data
-                setActivePopup(popupData);
+            if (!popupParams) {
+                console.error("No popup params extracted");
+                return;
             }
+
+            // Retrieve popup configuration from PopupContext
+            const popupConfig =
+                popupContext.formSettings.popups?.[popupParams.popupId];
+            if (!popupConfig) {
+                console.error(
+                    `Popup configuration not found for ID: ${popupParams.popupId}`
+                );
+                console.log(
+                    "Available Popups in Context:",
+                    popupContext.formSettings.popups
+                );
+                return;
+            }
+
+            // Merge extracted data with popup configuration
+            const mergedPopup = {
+                ...popupConfig,
+                initialData: popupParams.initialData,
+                saveUrl: popupParams.saveUrl,
+                saveData: popupParams.saveData,
+            };
+
+            console.log("Triggering Popup with data:", mergedPopup);
+            popupContext.setActivePopup(mergedPopup);
         }
     };
 
-    const isHTML =
-        typeof value === "string" &&
-        (value.includes("<") || value.includes("&") || value.includes("~")); // Include tilde since your data uses it as a separator
-
-    if (!isHTML) {
-        return value;
-    }
-
-    // Split the value by tildes and process each part
-    const parts = value.split("~").map((part, index) => {
-        // Decode HTML entities in each part
-        const decodedPart = decodeHTMLEntities(part);
-
-        // If it's a monetary value (contains £), wrap it in a span for styling
-        if (part.includes("&pound;")) {
-            return `<span class="font-medium">${decodedPart}</span>`;
-        }
-
-        return decodedPart;
-    });
-
-    // Join the parts back with spaces or any desired separator
-    const processedValue = parts.join(" "); // or join with " • " for better visual separation
+    if (!value) return null;
 
     return (
         <div
@@ -107,13 +124,8 @@ const CellRenderer = ({ value }) => {
             onMouseLeave={() => setIsHovered(false)}
         >
             <div
-                className="inline-flex gap-1 items-center"
-                dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(processedValue, {
-                        ADD_ATTR: ["onclick", "title"],
-                        ADD_TAGS: ["span"],
-                    }),
-                }}
+                className="inline-flex gap-1 items-center cursor-pointer"
+                dangerouslySetInnerHTML={{ __html: value }}
                 onClick={handleClick}
             />
         </div>

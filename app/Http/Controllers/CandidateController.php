@@ -111,9 +111,19 @@ public function renderCandidateView($status,$viewform, $viewName, $candidateData
 public function getCandidatePage(Request $request, $name, $call)
 {
     $candidateData = $this->externalAuthService->collectionUserSettings($call);
-    $viewForm = $candidateData['vsetts']['viewform']; 
-    
+
+    foreach ($candidateData['data'] as $key => &$candidate) {
+        foreach ($candidate as $field => &$value) {
+            if (strpos($value, 'runPopButton') !== false) {
+                $value = str_replace('~', '%7E', $value);
+            }
+        }
+    }
+
     // dd($candidateData); 
+
+    $viewForm = $candidateData['vsetts']['viewform']; 
+     
     
     // Add buttons and popups to the data being passed to the view
     $candidateData['buttons'] = $candidateData['vsetts']['Buttons'] ?? null;
@@ -165,7 +175,7 @@ public function getCandidatePage(Request $request, $name, $call)
             $saveUrl = $request->input('saveUrl');
             $saveData = $request->input('saveData');
 
-            dd($changes,$saveUrl, $saveData );
+            // dd($changes,$saveUrl, $saveData );
 
             // Process the changes to replace $Author with session authID
             $processedChanges = collect($changes)->map(function ($value, $key) {

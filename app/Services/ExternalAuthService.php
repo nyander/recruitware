@@ -349,11 +349,10 @@ class ExternalAuthService
     
         Log::info('Cookies sent with request:', ['cookies' => Session::get('cookieJar')]);
         $resp = $response->getBody()->getContents();
+
+        // dd($resp);
         
        
-
-
-
         $resp1 = str_replace("\n", '',$resp);
         $resp2 = str_replace("~END~~END~", '~END~',$resp1);
 		$arrel = explode('~END~',$resp2);

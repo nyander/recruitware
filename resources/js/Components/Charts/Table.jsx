@@ -134,15 +134,19 @@ const Table = ({
     // Handle cell clicks
     // Handle cell selection
     const handleCellClick = (cellInfo) => {
+        // Extract cell and its value early to avoid scoping issues
+        const { cell, row } = cellInfo;
+        const cellValue = cell?.value || ""; // Safely extract cell value
+
+        console.log("Cell Data:", cellValue);
+
+        // If row clicks are enabled, handle the row click instead of cell click
         if (!disableRowClick) {
-            handleRowClick(cellInfo.row);
+            handleRowClick(row); // Use row click handler
             return;
         }
 
-        const cell = cellInfo.cell;
-        const cellValue = cell.value || "";
-
-        // Check if the cell content contains a runPopButton function call
+        // Check if the cell value contains a `runPopButton` function call
         if (typeof cellValue === "string") {
             const runPopButtonMatch = cellValue.match(
                 /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/
@@ -151,20 +155,20 @@ const Table = ({
             if (runPopButtonMatch) {
                 const [_, popupId, fieldsString, valuesString] =
                     runPopButtonMatch;
+
+                // Split fields and values and map them
                 const fields = fieldsString.split("~");
                 const values = valuesString.split("~");
 
-                // Create initial data object mapping fields to values
                 const initialData = {};
                 fields.forEach((field, index) => {
-                    let value = values[index] || "";
+                    let value = values[index] || ""; // Default to empty string if value is missing
                     const fieldInfo = structuredFormFields?.[field];
                     const fieldType = fieldInfo?.type?.toLowerCase();
 
-                    // Align with FormFields.jsx type handling
+                    // Handle field types
                     switch (fieldType) {
                         case "select":
-                            // Use the same logic as FormFields select component
                             const options = getSelectOptions(
                                 field,
                                 fieldInfo,
@@ -179,34 +183,26 @@ const Table = ({
                             break;
 
                         case "checkbox":
-                            // Handle checkbox values as array/multiple selection
                             initialData[field] = value
                                 ? value.split(";").filter(Boolean)
                                 : [];
                             break;
 
                         case "html":
-                            // Preserve HTML content
-                            initialData[field] = value;
+                            initialData[field] = value; // Preserve HTML content
                             break;
 
                         case "readonly":
-                            // Handle readonly fields
-                            initialData[field] = value;
-                            break;
-
                         case "attach":
-                            // Handle attachment fields
                             initialData[field] = value;
                             break;
 
                         default:
-                            // Default handling for text and other types
-                            initialData[field] = value;
+                            initialData[field] = value; // Default case
                     }
                 });
 
-                // Helper function to get select options (copied from FormFields.jsx)
+                // Helper function to get select options
                 const getSelectOptions = (field, fieldInfo, formFields) => {
                     if (fieldInfo?.options?.length) {
                         const firstOption = fieldInfo.options[0]?.value;
@@ -238,7 +234,7 @@ const Table = ({
 
                     setActivePopup(mergedPopup);
 
-                    const cellKey = `${cellInfo.row.id}-${cellInfo.column.id}`;
+                    const cellKey = `${row.id}-${cell.column.id}`;
                     setSelectedCells(singleSelectMode ? [cellKey] : [cellKey]);
                     setSelectedCellData([
                         {
@@ -315,28 +311,30 @@ const Table = ({
         setActivePopup,
         formFields: structuredFormFields,
         formSettings: {
-            ...popups,
-            // Safely access saveURL and saveData
+            popups: parsedPopups,
             saveUrl: formSettings?.saveURL || "",
             saveData: formSettings?.saveData || "",
+            data: formSettings?.data || {},
         },
-        handlePopupSubmit: async (updates) => {
+        handlePopupSubmit: async (updates, popupConfig) => {
             try {
                 setIsSubmitting(true);
 
-                // Include the selected cell's data in updates
-                const selectedData = selectedCellData[0];
-                const mergedUpdates = {
-                    ...updates,
-                    ...(selectedData?.popupParams?.initialData || {}),
-                };
+                // Include the active popup's saveUrl and saveData
+                const currentSaveUrl =
+                    activePopup?.saveUrl || formSettings?.saveURL || "";
+                const currentSaveData =
+                    activePopup?.saveData || formSettings?.saveData || "";
 
-                await handlePopupSubmit(mergedUpdates);
+                await router.post(route("candidates.store"), {
+                    changes: updates,
+                    saveUrl: currentSaveUrl,
+                    saveData: currentSaveData,
+                });
 
-                // Clear selections after successful submission
+                setActivePopup(null);
                 setSelectedCells([]);
                 setSelectedCellData([]);
-                setActivePopup(null);
             } catch (error) {
                 console.error("Error submitting popup:", error);
             } finally {
