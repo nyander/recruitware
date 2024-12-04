@@ -498,6 +498,7 @@ class ExternalAuthService
 
         // Check if $content includes "Form"
         if (strpos($content, 'Form') !== false) {
+            // dd($this->vSetts, $this->vData);
             $structuredData = [
                 'tabs_Sections' => $this->structureFormData(),
                 'data' => $this->vData,
@@ -521,47 +522,56 @@ class ExternalAuthService
         return $structuredData;
     }
 
-    public function collectionUserSettings($content){
-        //DEFAULT URL
-        $ty=$content;
-        $url="{$this->baseUrl}/[FLDR]/candidates.nsf/ag.searchdata?openagent&[RND]";
-        $colLs=preg_split('/\;/','Candidate Ref;Full Name;Email;Shift Pattern;Location;First Name;Last Name;Job Type;Phone;Assessed;Date Of Birth;Branch;Avail Window;Classification;County;ID');
-        $qry='(Form="Candidate") & (RegStatus="Completed")|0~FirstName;1~LastName;2~Email;3~Mobile;4~UnitName;5~AvailDays;6~EarliestStart;7~LatestStart;8~ClientName;9~AssessedClients;10~DateOfBirth;11~CandidateRef;12~Classification;13~Town;14~County;15~CandidatePack;16~JobType';
-        $ret='First Name;Last Name;Email;Phone;Branch;Shift Pattern;Earliest Start;Latest Start;Location;Assessed;Date Of Birth;Candidate Ref;Classification;Town;County;Pack;Job Type;DocID';
- 
-        $this->getUserSettings($content);
+    public function collectionUserSettings($content, $url = null, $query = null)
+{
+    // DEFAULT URL and QUERY
+    $defaultUrl = "{$this->baseUrl}/[FLDR]/candidates.nsf/ag.searchdata?openagent&[RND]";
+    $defaultQuery = '(Form="Candidate") & (RegStatus="Completed")|0~FirstName;1~LastName;2~Email;3~Mobile;4~UnitName;5~AvailDays;6~EarliestStart;7~LatestStart;8~ClientName;9~AssessedClients;10~DateOfBirth;11~CandidateRef;12~Classification;13~Town;14~County;15~CandidatePack;16~JobType';
 
+    $colLs = preg_split('/\;/', 'Candidate Ref;Full Name;Email;Shift Pattern;Location;First Name;Last Name;Job Type;Phone;Assessed;Date Of Birth;Branch;Avail Window;Classification;County;ID');
+    $ret = 'First Name;Last Name;Email;Phone;Branch;Shift Pattern;Earliest Start;Latest Start;Location;Assessed;Date Of Birth;Candidate Ref;Classification;Town;County;Pack;Job Type;DocID';
 
-        if (isset($this->vSetts['url'])){
-            $url=$this->vSetts['url'];
-            $colLs=preg_split('/\;/',$this->vSetts['labels']); // not needed on getFormSettings
-            
-            $qry=$this->vSetts['query']; // not needed on getFormSettings
-            $ret=$this->vSetts['return-list']; // do not need on getFormSettings
-            //echo "Settign query to " . $qry;
-            }else{
-            //echo "****NO SETTS***";
-        }
-        $v1=array();
-        $v1['url']=$url;
-        $v1['is-post']='1'; // Change this to 0 on getFormSettings
-        $v1['return-type']='View'; // 'Doc' for getFormSettings'
-        $v1['data']=$qry; // do not need on getFormSettings
-        $v1['return-list']=$ret; // not needed on getFormSettings
-        // dd($content, $v1);
-        $this->getDataUrl($v1);
-        
-        $structuredData = [
-            'columns' => $colLs,
-            'data' => $this->vData,
-            'menu' => $this->getMenuData(),
-            'vsetts'=> $this->vSetts,
-        ];
-        
+    // Fetch user settings
+    $this->getUserSettings($content);
 
-
-        return $structuredData;
+    // If user settings are provided, override defaults
+    if (isset($this->vSetts['url'])) {
+        $defaultUrl = $this->vSetts['url'];
+        $colLs = preg_split('/\;/', $this->vSetts['labels']);
+        $defaultQuery = $this->vSetts['query'];
+        $ret = $this->vSetts['return-list'];
     }
+
+    // Use provided URL and query, or fall back to defaults
+    $finalUrl = $url ?? $defaultUrl;
+    $finalQuery = $query ?? $defaultQuery;
+
+    // Log::debug('URL + QUERY', ['url' => $finalUrl, 'query' => $finalQuery]);
+
+    // Prepare request payload
+    $v1 = [
+        'url' => $finalUrl,
+        'is-post' => '1', // Change this to 0 for getFormSettings
+        'return-type' => 'View', // Use 'Doc' for getFormSettings
+        'data' => $finalQuery, // Use query string
+        'return-list' => $ret, // List of fields to return
+    ];
+
+    // Fetch data from the external service
+    $this->getDataUrl($v1);
+
+    // Structure the data for return
+    $structuredData = [
+        'columns' => $colLs,
+        'data' => $this->vData,
+        'menu' => $this->getMenuData(),
+        'vsetts' => $this->vSetts,
+        'timestamp' => now()->timestamp,
+    ];
+
+    return $structuredData;
+}
+
 
     public function updateCandidate($saveUrl, $saveDataChanges){
 
@@ -696,6 +706,7 @@ class ExternalAuthService
         $structuredFields = [];
 
         foreach ($formFields as $fieldName => $fieldInfo) {
+            
             // Check if $fieldInfo is an array
             if (is_array($fieldInfo)) {
                 // If it's already an array, use it directly
@@ -706,9 +717,10 @@ class ExternalAuthService
                 $label = $parts[0] ?? $fieldName;
                 $type = $parts[1] ?? 'Text';
                 $options = [];
+                
 
                 if (($type === 'Select'|| $type === 'Checkbox' || $type ==='Lookup')  && isset($parts[2])) {
-                    $optionPairs = explode('@@', $parts[2]);
+                    $optionPairs = explode('@@', string: $parts[2]);
                     foreach ($optionPairs as $pair) {
                         $pairParts = explode('|', $pair);
                         if (count($pairParts) === 2) {
@@ -717,16 +729,38 @@ class ExternalAuthService
                             $options[] = ['value' => $pair, 'label' => $pair];
                         }
                     }
+                } else if ($type === 'Table'){
+                    $optionPairs = explode('$END$', string: $parts[2]);
+                    foreach ($optionPairs as $pair) {
+                        $pairParts = explode('$@$', $pair);
+                        if (count($pairParts) === 2) {
+                            $options[] = ['label' => $pairParts[0], 'value' => $pairParts[1]];
+                        } else {
+                            $options[] = ['value' => $pair, 'label' => $pair];
+                        }
+                    }
                 }
+               
+                
 
-                $structuredFields[$fieldName] = [
+                $structuredFields[$fieldName] = array_merge([
                     'label' => $label,
                     'type' => $type,
                     'options' => $options,
-                ];
+                ], $type === 'Table' ? ['timestamp' => now()->timestamp] : []);
             }
         }
 
         return $structuredFields;
+    }
+
+    public function getLatestData($call) 
+    {
+        // Use existing method but add timestamp
+        $candidateData = $this->collectionUserSettings($call);
+        return [
+            'data' => $candidateData,
+            'timestamp' => now()->timestamp
+        ];
     }
 }

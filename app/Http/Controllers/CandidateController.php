@@ -104,12 +104,15 @@ public function renderCandidateView($status,$viewform, $viewName, $candidateData
         'structuredFormFields' => $structuredFormFields,
         'disableRowClick' => $disableRowClick,
         'vsetts' => $candidateData['vsetts'],
+        'pollingInterval' => config('app.polling_interval', 30000),
     ]);
 }
 
 public function getCandidatePage(Request $request, $name, $call)
 {
     $candidateData = $this->externalAuthService->collectionUserSettings($call);
+
+    // dd($candidateData);
 
     foreach ($candidateData['data'] as $key => &$candidate) {
         foreach ($candidate as $field => &$value) {
@@ -227,7 +230,7 @@ public function getCandidatePage(Request $request, $name, $call)
         $formSettings = $this->externalAuthService->collectionFormSettings($getUserSettingsString);
         $menu = $this->externalAuthService->getMenuData();
 
-        // dd($formSettings, $formFields); 
+        dd($formSettings, $formFields); 
         
         return Inertia::render('Candidates/Edit', [
             'formSettings' => $formSettings,
@@ -279,5 +282,68 @@ public function getCandidatePage(Request $request, $name, $call)
         
         // Add the formatted changes
         return $saveUrl . '|' . $formattedChanges;
+    }
+
+    public function pollData(Request $request)
+    {
+        try {
+            $call = $request->query('call');
+            
+            // Get fresh data using your external service
+            $candidateData = $this->externalAuthService->collectionUserSettings($call);
+            
+            // Format the data
+            foreach ($candidateData['data'] as $key => &$candidate) {
+                foreach ($candidate as $field => &$value) {
+                    if (strpos($value, 'runPopButton') !== false) {
+                        $value = str_replace('~', '%7E', $value);
+                    }
+                }
+            }
+            
+            return response()->json([
+                'data' => $candidateData['data'],
+                'timestamp' => now()->timestamp
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error polling for updates: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to fetch updates'], 500);
+        }
+    }
+
+    public function getTableData(Request $request)
+    {
+        try {
+            Log::debug('Fetching table data');
+            $url = $request->input('url');
+            $query = $request->input('query');
+            
+            
+            $viewForm = $request->input('viewForm');
+            $getUserSettingsString = "Fields|".$viewForm;
+            $formFields = $this->externalAuthService->collectionFormSettings($getUserSettingsString)['sets'];
+            $structuredFormFields = $this->externalAuthService->structureFormFields($formFields);
+            
+            
+            Log::debug('Form fields processed', ['fields' => $structuredFormFields]);
+            
+            $candidateData = $this->externalAuthService->collectionUserSettings($viewForm, $url, $query);
+            Log::debug('Candidate data retrieved', ['data' => $candidateData]);
+            
+    
+            $response = [
+                'data' => array_values($candidateData['data']['data'] ?? []),
+                'structuredFormFields' => $structuredFormFields,
+                'buttons' => $candidateData['vsetts']['Buttons'] ?? null,
+                'popups' => $candidateData['vsetts']['Popups'] ?? null
+            ];
+            
+            Log::debug('Response prepared', ['response' => $response]);
+            
+            return response()->json($response);
+        } catch (\Exception $e) {
+            Log::error('Table data error:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 }

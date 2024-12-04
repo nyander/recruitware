@@ -24,12 +24,16 @@ const Index = ({
         saveData: vsetts?.SaveData || "",
     };
 
-    console.log("Index Component Props:", {
-        buttons,
-        popups,
-        structuredFormFields,
-        vsetts,
-        formSettings,
+    console.log({
+        columns: columns,
+        data: Object.values(candidates),
+        viewForm: viewForm,
+        buttons: buttons,
+        popups: popups,
+        structuredFormFields: structuredFormFields,
+        formSettings: formSettings,
+        disableRowClick: disableRowClick,
+        vsetts: vsetts,
     });
 
     return (

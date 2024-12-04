@@ -1,5 +1,7 @@
 import React from "react";
 import AttachmentField from "./AttachmentField";
+import { Table } from "lucide-react";
+import TableField from "./TableField";
 
 export const FormFields = {
     select: ({ field, fieldInfo, value, onChange, isDisabled, formFields }) => {
@@ -108,6 +110,10 @@ export const FormFields = {
                 handleInputChange={handleInputChange}
             />
         );
+    },
+
+    table: (props) => {
+        return <TableField {...props} />;
     },
 
     default: ({

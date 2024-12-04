@@ -81,7 +81,6 @@ Route::middleware(['external.auth'])->group(function () {
         Route::get('{viewForm}/{id}/edit', [CandidateController::class, 'edit'])->name('edit');
         Route::post('/store', [CandidateController::class, 'store'])->name('store');
     });
-    Route::get('/{name}/{call}', [CandidateController::class, 'getCandidatePage'])->name('candidates.page');
     Route::get('/candidate/form-settings', [CandidateController::class, 'getFormSettings'])->name('candidate.form-settings');
 
     // Clients routes
@@ -153,5 +152,16 @@ Route::get('/css/upload-button.css', function () {
         ->header('Content-Type', 'text/css')
         ->header('Access-Control-Allow-Origin', '*');
 });
+
+Route::get('/api/candidates/poll', [CandidateController::class, 'pollData'])
+    ->name('candidates.poll')
+    ->middleware(['external.auth']);
+
+    Route::get('/candidates/table-data', [CandidateController::class, 'getTableData'])
+    ->name('candidates.table-data')
+    ->middleware(['external.auth']);
+
+    Route::get('/{name}/{call}', [CandidateController::class, 'getCandidatePage'])->name('candidates.page');
+
 
 require __DIR__.'/auth.php';

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
     useTable,
     useSortBy,
@@ -10,6 +10,7 @@ import CellRenderer from "./CellRenderer";
 import ButtonPopup from "../CandidateButtonPopup";
 import { router } from "@inertiajs/react";
 import { Search, Filter, ChevronDown, X } from "lucide-react";
+import axios from "axios";
 
 // Update the MultiSelectDropdown component to handle disabled state
 const MultiSelectDropdown = ({
@@ -89,7 +90,8 @@ const Table = ({
     formSettings = {},
     disableRowClick = false,
     singleSelectMode = true,
-    vsetts = {}, // Add vsetts prop
+    vsetts = {},
+    updateInterval = 30000,
 }) => {
     const [activePopup, setActivePopup] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -107,6 +109,52 @@ const Table = ({
     const [filterValues, setFilterValues] = useState({});
     const [showColumnSelector, setShowColumnSelector] = useState(false);
     const [crucialFilters, setCrucialFilters] = useState([]);
+    const [pollingEnabled, setPollingEnabled] = useState(true);
+    const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
+    const pollingInterval = useRef(null);
+    const [tableData, setTableData] = useState(rawData);
+    const [currentData, setCurrentData] = useState(rawData);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+    useEffect(() => {
+        const pollForUpdates = async () => {
+            try {
+                const response = await axios.get(route("candidates.poll"), {
+                    params: {
+                        call: vsetts?.viewform,
+                        lastUpdate: lastUpdateTime,
+                    },
+                });
+
+                if (response.data?.data) {
+                    setTableData(response.data.data); // Update tableData instead of currentData
+                    setLastUpdateTime(Date.now());
+                }
+            } catch (error) {
+                console.error("Polling error:", error);
+                setPollingEnabled(false);
+            }
+        };
+
+        let intervalId;
+        if (pollingEnabled) {
+            // Initial poll
+            pollForUpdates();
+            // Set up interval
+            intervalId = setInterval(pollForUpdates, updateInterval);
+        }
+
+        // Cleanup function
+        return () => {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        };
+    }, [pollingEnabled, vsetts?.viewform, updateInterval]);
+
+    const togglePolling = () => {
+        setPollingEnabled((prev) => !prev);
+    };
 
     // Parse crucial filters from vsetts on mount
     useEffect(() => {
@@ -114,8 +162,8 @@ const Table = ({
             const filters = vsetts.tablefilters
                 .split(";")
                 .map((filter) => filter.trim());
-            console.log("Crucial Filters:", filters);
-            console.log("Table Filters from vsetts:", vsetts.tablefilters);
+            // console.log("Crucial Filters:", filters);
+            // console.log("Table Filters from vsetts:", vsetts.tablefilters);
             setCrucialFilters(filters);
         }
     }, [vsetts.tablefilters]);
@@ -204,8 +252,8 @@ const Table = ({
             ? rawData
             : Object.values(rawData);
 
-        console.log("Processing columns for filters:", initialColumns);
-        console.log("Crucial filters to process:", crucialFilters);
+        // console.log("Processing columns for filters:", initialColumns);
+        // console.log("Crucial filters to process:", crucialFilters);
 
         // First process crucial filters to ensure they're included
         crucialFilters.forEach((filterName) => {
@@ -220,7 +268,7 @@ const Table = ({
                 }
             });
             values[filterName] = Array.from(uniqueVals).sort();
-            console.log(`Values for ${filterName}:`, values[filterName]);
+            // console.log(`Values for ${filterName}:`, values[filterName]);
         });
 
         // Then process remaining columns
@@ -243,43 +291,62 @@ const Table = ({
         return values;
     }, [rawData, initialColumns, crucialFilters]);
 
+    // Replace the existing dependentColumnValues useMemo with this fixed version
     const dependentColumnValues = useMemo(() => {
+        // Early return if no crucial filters defined
+        if (!crucialFilters || !crucialFilters.length) {
+            return {};
+        }
+
         console.log("Calculating dependent values with filters:", filterValues);
 
-        // Get the base dataset
-        const dataset = Array.isArray(rawData)
-            ? rawData
-            : Object.values(rawData);
+        // Get the base dataset and ensure it's an array
+        const dataset = currentData
+            ? Array.isArray(currentData)
+                ? currentData
+                : Object.values(currentData)
+            : [];
 
-        // Filter the dataset based on all current filter selections
+        // Apply filters to get filtered dataset
         const filteredData = dataset.filter((row) => {
-            // Check if the row matches all current filter selections
-            return Object.entries(filterValues).every(
-                ([columnName, selectedValues]) => {
-                    if (!selectedValues || selectedValues.length === 0)
-                        return true;
+            // If no filters, include all rows
+            if (!filterValues || Object.keys(filterValues).length === 0) {
+                return true;
+            }
 
-                    const rowValue = (
-                        row[columnName] || row[columnName?.toLowerCase()]
-                    )?.toString();
-                    return selectedValues.includes(rowValue);
+            // Check each filter
+            return Object.entries(filterValues).every(
+                ([columnId, selectedValues]) => {
+                    // Skip if no selected values
+                    if (!selectedValues || !selectedValues.length) {
+                        return true;
+                    }
+
+                    // Get value from row (try both case variations)
+                    const value = row[columnId] || row[columnId?.toLowerCase()];
+                    // Convert value to string for comparison
+                    const strValue = value?.toString();
+
+                    return strValue && selectedValues.includes(strValue);
                 }
             );
         });
 
         console.log("Filtered dataset length:", filteredData.length);
 
-        // Calculate available options for each column based on filtered data
+        // Calculate available options for each crucial filter
         const availableOptions = {};
 
         crucialFilters.forEach((columnName) => {
+            if (!columnName) return;
+
             const uniqueValues = new Set();
 
             filteredData.forEach((row) => {
                 const value = (
                     row[columnName] || row[columnName?.toLowerCase()]
                 )?.toString();
-                if (value !== undefined && value !== null && value !== "") {
+                if (value) {
                     uniqueValues.add(value);
                 }
             });
@@ -287,11 +354,10 @@ const Table = ({
             availableOptions[columnName] = Array.from(uniqueValues).sort();
         });
 
-        // Log available options for debugging
-        console.log("Available options for filters:", availableOptions);
+        // console.log("Available options for filters:", availableOptions);
 
         return availableOptions;
-    }, [rawData, filterValues, crucialFilters]);
+    }, [currentData, filterValues, crucialFilters]);
 
     // Parse buttons and popups on mount
     useEffect(() => {
@@ -399,6 +465,7 @@ const Table = ({
         );
     };
 
+    // Update the handleCellClick function in your Table component
     const handleCellClick = (cellInfo) => {
         if (!disableRowClick) {
             handleRowClick(cellInfo.row);
@@ -406,18 +473,40 @@ const Table = ({
         }
 
         const cell = cellInfo.cell;
-        const cellValue = cell.value || "";
+        let cellValue = cell.value || "";
 
+        // Decode URL-encoded characters if present
         if (typeof cellValue === "string") {
+            cellValue = cellValue.replace(/%7E/g, "~");
+
+            // Extract runPopButton parameters
             const runPopButtonMatch = cellValue.match(
-                /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/
+                /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\s*(?:,\s*'([^']+)')?\s*(?:,\s*'([^']+)')?\)/
             );
+
             if (runPopButtonMatch) {
-                const [_, popupId, fieldsString, valuesString] =
-                    runPopButtonMatch;
+                const [
+                    _,
+                    popupId,
+                    fieldsString,
+                    valuesString,
+                    saveUrl,
+                    saveData,
+                ] = runPopButtonMatch;
+
+                console.log("Popup Parameters:", {
+                    popupId,
+                    fieldsString,
+                    valuesString,
+                    saveUrl,
+                    saveData,
+                });
+
+                // Split fields and values
                 const fields = fieldsString.split("~");
                 const values = valuesString.split("~");
 
+                // Create initial data object
                 const initialData = {};
                 fields.forEach((field, index) => {
                     let value = values[index] || "";
@@ -436,28 +525,36 @@ const Table = ({
                             );
                             initialData[field] = matchingOption
                                 ? matchingOption.value
-                                : "";
+                                : value;
                             break;
+
                         case "checkbox":
                             initialData[field] = value
                                 ? value.split(";").filter(Boolean)
                                 : [];
                             break;
-                        case "html":
-                        case "readonly":
-                        case "attach":
+
                         default:
                             initialData[field] = value;
                     }
                 });
 
+                // Get popup configuration
                 const popupConfig = parsedPopups[popupId];
                 if (popupConfig) {
+                    console.log(
+                        "Found popup config for:",
+                        popupId,
+                        popupConfig
+                    );
+
                     const mergedPopup = {
                         ...popupConfig,
                         initialData,
-                        saveUrl: formSettings?.saveURL || "",
-                        saveData: formSettings?.saveData || "",
+                        saveUrl: saveUrl || formSettings?.saveURL || "",
+                        saveData: saveData
+                            ? saveData.replace(/\$/g, "|")
+                            : formSettings?.saveData || "",
                     };
 
                     setActivePopup(mergedPopup);
@@ -472,11 +569,17 @@ const Table = ({
                                 fields,
                                 values,
                                 initialData,
+                                saveUrl,
+                                saveData,
                             },
                             content: cellValue,
                             originalCell: cell,
                         },
                     ]);
+                } else {
+                    console.error(
+                        `Popup configuration not found for ID: ${popupId}`
+                    );
                 }
             }
         }
@@ -538,9 +641,9 @@ const Table = ({
 
     // Apply filters to data
     const filteredData = useMemo(() => {
-        let filtered = Array.isArray(rawData)
-            ? rawData
-            : Object.values(rawData);
+        let filtered = Array.isArray(tableData)
+            ? tableData
+            : Object.values(tableData);
 
         Object.entries(filterValues).forEach(([columnId, selectedValues]) => {
             if (selectedValues && selectedValues.length > 0) {
@@ -552,7 +655,7 @@ const Table = ({
         });
 
         return filtered;
-    }, [rawData, filterValues]);
+    }, [tableData, filterValues]);
 
     const columns = useMemo(
         () =>
@@ -564,11 +667,31 @@ const Table = ({
                 )
                 .map((col) => ({
                     Header: typeof col === "string" ? col : col.Header,
-                    accessor: (row) =>
-                        row[col] || row[col?.toLowerCase()] || "",
+                    accessor: (row) => {
+                        // Preserve the raw value exactly as it comes from the data
+                        const value = row[col] || row[col?.toLowerCase()];
+                        return value ?? "";
+                    },
                     Cell: ({ value }) => <CellRenderer value={value} />,
                 })),
         [initialColumns, visibleColumns]
+    );
+
+    const tableInstance = useTable(
+        {
+            columns,
+            data: filteredData,
+            initialState: {
+                pageIndex: 0,
+                pageSize: 10,
+            },
+            autoResetPage: false, // Prevent page reset on data change
+            autoResetSortBy: false, // Prevent sort reset on data change
+            autoResetFilters: false, // Prevent filter reset on data change
+        },
+        useGlobalFilter,
+        useSortBy,
+        usePagination
     );
 
     const {
@@ -587,16 +710,7 @@ const Table = ({
         setPageSize,
         setGlobalFilter,
         state: { pageIndex, pageSize },
-    } = useTable(
-        {
-            columns,
-            data: filteredData,
-            initialState: { pageIndex: 0, pageSize: 10 },
-        },
-        useGlobalFilter,
-        useSortBy,
-        usePagination
-    );
+    } = tableInstance;
 
     const popupContextValue = {
         setActivePopup,
@@ -701,6 +815,42 @@ const Table = ({
                                         <X className="w-4 h-4 text-gray-400" />
                                     </button>
                                 )}
+                            </div>
+
+                            {/* Add the polling toggle button here */}
+                            <div className="flex items-center space-x-2">
+                                <button
+                                    onClick={togglePolling}
+                                    className={`px-3 py-2 rounded-md text-sm flex items-center space-x-2 ${
+                                        pollingEnabled
+                                            ? "bg-green-100 text-green-800"
+                                            : "bg-gray-100 text-gray-800"
+                                    }`}
+                                >
+                                    {pollingEnabled ? (
+                                        <>
+                                            <div className="animate-ping h-2 w-2 rounded-full bg-green-400 mr-2" />
+                                            Live Updates On
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="h-2 w-2 rounded-full bg-gray-400 mr-2" />
+                                            Live Updates Off
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+
+                            <div className="flex items-center">
+                                {pollingEnabled && (
+                                    <div className="flex items-center mr-4">
+                                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" />
+                                        <span className="text-sm text-gray-500">
+                                            Live Updates
+                                        </span>
+                                    </div>
+                                )}
+                                {/* Rest of your table controls */}
                             </div>
 
                             {/* Advanced Search Toggle */}
