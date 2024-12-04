@@ -110,6 +110,7 @@ public function renderCandidateView($status,$viewform, $viewName, $candidateData
 
 public function getCandidatePage(Request $request, $name, $call)
 {
+    
     $candidateData = $this->externalAuthService->collectionUserSettings($call);
 
     // dd($candidateData);
@@ -230,7 +231,7 @@ public function getCandidatePage(Request $request, $name, $call)
         $formSettings = $this->externalAuthService->collectionFormSettings($getUserSettingsString);
         $menu = $this->externalAuthService->getMenuData();
 
-        dd($formSettings, $formFields); 
+        // dd($formSettings, $formFields); 
         
         return Inertia::render('Candidates/Edit', [
             'formSettings' => $formSettings,
@@ -329,7 +330,6 @@ public function getCandidatePage(Request $request, $name, $call)
             
             $candidateData = $this->externalAuthService->collectionUserSettings($viewForm, $url, $query);
             Log::debug('Candidate data retrieved', ['data' => $candidateData]);
-            
     
             $response = [
                 'data' => array_values($candidateData['data']['data'] ?? []),
