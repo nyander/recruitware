@@ -117,21 +117,43 @@ const Table = ({
     const [isInitialLoad, setIsInitialLoad] = useState(true);
 
     useEffect(() => {
+        console.log("Hello world:", vsetts?.url, vsetts?.query);
         const pollForUpdates = async () => {
             try {
+                const processedUrl = vsetts?.url?.replace(
+                    /\[RND\]/g,
+                    Math.random().toString(36).substring(7)
+                );
+                const processedQuery = vsetts?.query?.replace(/\^/g, "~");
+
+                console.log("Polling request details:", {
+                    url: processedUrl,
+                    query: processedQuery,
+                    viewform: vsetts?.viewform,
+                    raw_vsetts: vsetts,
+                });
+
                 const response = await axios.get(route("candidates.poll"), {
                     params: {
                         call: vsetts?.viewform,
-                        lastUpdate: lastUpdateTime,
+                        url: processedUrl,
+                        query: processedQuery,
                     },
                 });
 
-                if (response.data?.data) {
-                    setTableData(response.data.data); // Update tableData instead of currentData
-                    setLastUpdateTime(Date.now());
-                }
+                console.log("Polling response:", response.data);
+
+                // ... rest of the code
             } catch (error) {
-                console.error("Polling error:", error);
+                console.error("Polling error details:", {
+                    message: error.message,
+                    response: error.response?.data,
+                    request_config: {
+                        url: error.config?.url,
+                        params: error.config?.params,
+                        headers: error.config?.headers,
+                    },
+                });
                 setPollingEnabled(false);
             }
         };
@@ -162,8 +184,8 @@ const Table = ({
             const filters = vsetts.tablefilters
                 .split(";")
                 .map((filter) => filter.trim());
-            // console.log("Crucial Filters:", filters);
-            // console.log("Table Filters from vsetts:", vsetts.tablefilters);
+            console.log("Crucial Filters:", filters);
+            console.log("Table Filters from vsetts:", vsetts.tablefilters);
             setCrucialFilters(filters);
         }
     }, [vsetts.tablefilters]);
@@ -252,8 +274,8 @@ const Table = ({
             ? rawData
             : Object.values(rawData);
 
-        // console.log("Processing columns for filters:", initialColumns);
-        // console.log("Crucial filters to process:", crucialFilters);
+        console.log("Processing columns for filters:", initialColumns);
+        console.log("Crucial filters to process:", crucialFilters);
 
         // First process crucial filters to ensure they're included
         crucialFilters.forEach((filterName) => {
@@ -268,7 +290,7 @@ const Table = ({
                 }
             });
             values[filterName] = Array.from(uniqueVals).sort();
-            // console.log(`Values for ${filterName}:`, values[filterName]);
+            console.log(`Values for ${filterName}:`, values[filterName]);
         });
 
         // Then process remaining columns
@@ -354,7 +376,7 @@ const Table = ({
             availableOptions[columnName] = Array.from(uniqueValues).sort();
         });
 
-        // console.log("Available options for filters:", availableOptions);
+        console.log("Available options for filters:", availableOptions);
 
         return availableOptions;
     }, [currentData, filterValues, crucialFilters]);
@@ -975,47 +997,60 @@ const Table = ({
                                 className="min-w-full divide-y divide-gray-200"
                             >
                                 <thead className="bg-gray-50">
-                                    {headerGroups.map((headerGroup) => (
-                                        <tr
-                                            {...headerGroup.getHeaderGroupProps()}
-                                        >
-                                            {headerGroup.headers.map(
-                                                (column) => (
-                                                    <th
-                                                        {...column.getHeaderProps(
-                                                            column.getSortByToggleProps()
-                                                        )}
-                                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                                    >
-                                                        <div className="flex items-center space-x-1">
-                                                            <span>
-                                                                {column.render(
-                                                                    "Header"
-                                                                )}
-                                                            </span>
-                                                            <span className="text-gray-400">
-                                                                {column.isSorted
-                                                                    ? column.isSortedDesc
-                                                                        ? " ▼"
-                                                                        : " ▲"
-                                                                    : ""}
-                                                            </span>
-                                                        </div>
-                                                    </th>
-                                                )
-                                            )}
-                                        </tr>
-                                    ))}
+                                    {headerGroups.map((headerGroup, i) => {
+                                        const { key, ...headerGroupProps } =
+                                            headerGroup.getHeaderGroupProps();
+                                        return (
+                                            <tr key={key} {...headerGroupProps}>
+                                                {headerGroup.headers.map(
+                                                    (column, j) => {
+                                                        const {
+                                                            key,
+                                                            ...columnProps
+                                                        } =
+                                                            column.getHeaderProps(
+                                                                column.getSortByToggleProps()
+                                                            );
+                                                        return (
+                                                            <th
+                                                                key={key}
+                                                                {...columnProps}
+                                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                                            >
+                                                                <div className="flex items-center space-x-1">
+                                                                    <span>
+                                                                        {column.render(
+                                                                            "Header"
+                                                                        )}
+                                                                    </span>
+                                                                    <span className="text-gray-400">
+                                                                        {column.isSorted
+                                                                            ? column.isSortedDesc
+                                                                                ? " ▼"
+                                                                                : " ▲"
+                                                                            : ""}
+                                                                    </span>
+                                                                </div>
+                                                            </th>
+                                                        );
+                                                    }
+                                                )}
+                                            </tr>
+                                        );
+                                    })}
                                 </thead>
                                 <tbody
                                     {...getTableBodyProps()}
                                     className="bg-white divide-y divide-gray-200"
                                 >
-                                    {page.map((row) => {
+                                    {page.map((row, i) => {
                                         prepareRow(row);
+                                        const { key, ...rowProps } =
+                                            row.getRowProps();
                                         return (
                                             <tr
-                                                {...row.getRowProps()}
+                                                key={key}
+                                                {...rowProps}
                                                 onClick={() =>
                                                     !disableRowClick &&
                                                     handleRowClick(row)
@@ -1026,32 +1061,43 @@ const Table = ({
                                                         : ""
                                                 }`}
                                             >
-                                                {row.cells.map((cell) => (
-                                                    <td
-                                                        {...cell.getCellProps()}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleCellClick({
-                                                                cell: cell,
-                                                                row: row,
-                                                                column: cell.column,
-                                                            });
-                                                        }}
-                                                        className={`px-2 py-2 whitespace-nowrap ${
-                                                            disableRowClick
-                                                                ? "cursor-pointer hover:bg-gray-100"
-                                                                : ""
-                                                        } ${
-                                                            selectedCells.includes(
-                                                                `${row.id}-${cell.column.id}`
-                                                            )
-                                                                ? "bg-blue-100"
-                                                                : ""
-                                                        }`}
-                                                    >
-                                                        {cell.render("Cell")}
-                                                    </td>
-                                                ))}
+                                                {row.cells.map((cell, j) => {
+                                                    const {
+                                                        key,
+                                                        ...cellProps
+                                                    } = cell.getCellProps();
+                                                    return (
+                                                        <td
+                                                            key={key}
+                                                            {...cellProps}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleCellClick(
+                                                                    {
+                                                                        cell: cell,
+                                                                        row: row,
+                                                                        column: cell.column,
+                                                                    }
+                                                                );
+                                                            }}
+                                                            className={`px-2 py-2 whitespace-nowrap ${
+                                                                disableRowClick
+                                                                    ? "cursor-pointer hover:bg-gray-100"
+                                                                    : ""
+                                                            } ${
+                                                                selectedCells.includes(
+                                                                    `${row.id}-${cell.column.id}`
+                                                                )
+                                                                    ? "bg-blue-100"
+                                                                    : ""
+                                                            }`}
+                                                        >
+                                                            {cell.render(
+                                                                "Cell"
+                                                            )}
+                                                        </td>
+                                                    );
+                                                })}
                                             </tr>
                                         );
                                     })}

@@ -374,43 +374,78 @@ class ExternalAuthService
             $this->vText = $variableTest;
         }
 
-        
-        
-        foreach ($arrel as $val) {
-            if ($i1 > 0) {
-                // dd($val);
-                if ($args['return-type'] == 'View') {
-                   
+        try {
+            if ($args['return-type'] == 'View') {
+                $rList = preg_split('/;/', $args['return-list']);
+                Log::debug('Return list split:', [
+                    'raw_return_list' => $args['return-list'],
+                    'split_array' => $rList
+                ]);
+            }
+            
+            
+            foreach ($arrel as $val) {
+                if ($i1 > 0) {
+                    // dd($val);
+                    if ($args['return-type'] == 'View') {
+                        // Skip HTML closing tags
+                        if (strpos($val, '</body>') !== false || strpos($val, '</html>') !== false) {
+                            continue;
+                        }
                     
+                        $a1 = preg_split('/\|/', $val);
+                        
+                        Log::debug('Processing row data:', [
+                            'row_data' => $val,
+                            'split_data' => $a1,
+                            'rList_count' => count($rList),
+                            'split_data_count' => count($a1)
+                        ]);
                     
-                    $a1 = preg_split('/\|/', $val);
-                    if (count($a1) > 2) {
-                        $docId = $a1[count($a1) - 1];
-                        $this->vData[$docId] = array_combine(array_map('trim', $rList), $a1);
-                        $this->vData[$docId]['DocID'] = $docId;
-                    }
-                } elseif ($args['return-type'] == 'Fields') {
-                    if (strpos($val, '#@#') > 1) {
-                        $a1 = preg_split('/#@#/', $val);
-                        if ($args['data-type'] == 'Settings') {
-                            $this->vSetts[$a1[0]] = $a1[1];
-                        } else {
-                            $this->vData[$a1[0]] = $a1[1];
+                        if (count($a1) >= count($rList)) {
+                            $docId = end($a1); // Get last element safely
+                            $dataValues = array_slice($a1, 0, count($rList)); // Take only needed values
+                            
+                            if (count($dataValues) === count($rList)) {
+                                $this->vData[$docId] = array_combine(
+                                    array_map('trim', $rList),
+                                    array_map('trim', $dataValues)
+                                );
+                                $this->vData[$docId]['DocID'] = $docId;
+                            }
+                        }
+                    } elseif ($args['return-type'] == 'Fields') {
+                        if (strpos($val, '#@#') > 1) {
+                            $a1 = preg_split('/#@#/', $val);
+                            if ($args['data-type'] == 'Settings') {
+                                $this->vSetts[$a1[0]] = $a1[1];
+                            } else {
+                                $this->vData[$a1[0]] = $a1[1];
+                            }
+                        }
+                    } elseif ($args['return-type'] == 'Doc') {
+                        if (strpos($val, '|') > 1) {
+                            $a1 = preg_split('/\|/', $val);
+                            $this->vData[strtolower($a1[0])] = $a1[1];
                         }
                     }
-                } elseif ($args['return-type'] == 'Doc') {
-                    if (strpos($val, '|') > 1) {
-                        $a1 = preg_split('/\|/', $val);
-                        $this->vData[strtolower($a1[0])] = $a1[1];
-                    }
+                        
                 }
-                    
+                $i1++;
             }
-            $i1++;
+
+            return $this->vData;
+        } catch (\Exception $e) {
+            Log::error('Error in getDataUrl:', [
+                'message' => $e->getMessage(),
+                'args' => $args,
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
         }
 
 
-        return $this->vData;
+        
         
     }
 
@@ -546,7 +581,7 @@ class ExternalAuthService
     $finalUrl = $url ?? $defaultUrl;
     $finalQuery = $query ?? $defaultQuery;
 
-    // Log::debug('URL + QUERY', ['url' => $finalUrl, 'query' => $finalQuery]);
+    Log::debug('URL + QUERY', ['url' => $url, 'query' => $query]);
 
     // Prepare request payload
     $v1 = [

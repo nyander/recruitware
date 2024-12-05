@@ -42,9 +42,9 @@ const Index = ({
             auth={auth}
             menu={menu}
             header={
-                <h2 className="font-semibold text-xl text-gray-800 leading-tight">
+                <div className="font-semibold text-xl text-gray-800 leading-tight">
                     {status}
-                </h2>
+                </div>
             }
         >
             <Head title={`${status} ${viewForm}`} />

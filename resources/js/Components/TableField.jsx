@@ -19,9 +19,20 @@ const TableField = ({ field, fieldInfo }) => {
                     return acc;
                 }, {});
 
-                const viewForm = settings.viewform;
+                console.log("Settings prepared:", settings); // Debug log
 
-                // Make request to your Laravel backend
+                const viewForm = settings.viewform;
+                const buttons = settings.Buttons?.replace(/\^/g, ";") || "";
+                const popups = settings.Popups?.replace(/\^/g, ";") || "";
+
+                console.log("Making request with params:", {
+                    viewForm,
+                    url: settings.url,
+                    query: settings.query,
+                    buttons,
+                    popups,
+                });
+
                 const response = await axios.get(
                     route("candidates.table-data"),
                     {
@@ -29,14 +40,20 @@ const TableField = ({ field, fieldInfo }) => {
                             viewForm,
                             url: settings.url,
                             query: settings.query,
+                            buttons,
+                            popups,
                         },
                     }
                 );
 
+                console.log("Response received:", response.data);
                 setTableData(response.data);
-                console.log("data passed in successfully");
             } catch (error) {
-                console.error("Error fetching table data:", error);
+                console.error("Error fetching table data:", {
+                    message: error.message,
+                    response: error.response?.data,
+                    status: error.response?.status,
+                });
             }
         };
 

@@ -83,6 +83,7 @@ public function renderCandidateView($status,$viewform, $viewName, $candidateData
     $user->email = $userData['Email'] ?? '';
     $user->role = $userData['DefaultRole'] ?? '';
 
+
     return Inertia::render("Candidates/{$viewName}", [
         'auth' => [
             'user' => $user,
@@ -110,44 +111,68 @@ public function renderCandidateView($status,$viewform, $viewName, $candidateData
 
 public function getCandidatePage(Request $request, $name, $call)
 {
-    
-    $candidateData = $this->externalAuthService->collectionUserSettings($call);
+    try {
+        $candidateData = $this->externalAuthService->collectionUserSettings($call);
 
-    // dd($candidateData);
+        // Add debug logging
+        Log::debug('Candidate Data from service:', [
+            'data_keys' => array_keys($candidateData),
+            'vsetts_keys' => array_keys($candidateData['vsetts'] ?? [])
+        ]);
 
-    foreach ($candidateData['data'] as $key => &$candidate) {
-        foreach ($candidate as $field => &$value) {
-            if (strpos($value, 'runPopButton') !== false) {
-                $value = str_replace('~', '%7E', $value);
+        // Process data array for runPopButton values
+        foreach ($candidateData['data'] as $key => &$candidate) {
+            foreach ($candidate as $field => &$value) {
+                if (strpos($value, 'runPopButton') !== false) {
+                    $value = str_replace('~', '%7E', $value);
+                }
             }
         }
+
+        // Safely get vsetts values with fallbacks
+        $vsetts = $candidateData['vsetts'] ?? [];
+        $viewForm = $vsetts['viewform'] ?? $call; // Fallback to $call if viewform not set
+        
+        // Add buttons and popups to the data being passed to the view
+        $candidateData['buttons'] = $vsetts['Buttons'] ?? null;
+        $candidateData['popups'] = $vsetts['Popups'] ?? null;
+        
+        // Check and sanitize disableRowClick
+        $disableRowClickRaw = $vsetts['disableRowClick'] ?? false;
+        $disableRowClickClean = strip_tags(trim($disableRowClickRaw));
+        $disableRowClick = filter_var($disableRowClickClean, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
+        // Get form fields and structure them
+        $getUserSettingsString = "Fields|".$viewForm;
+        $formFields = $this->externalAuthService->collectionFormSettings($getUserSettingsString)['sets'] ?? [];
+        $structuredFormFields = $this->externalAuthService->structureFormFields($formFields);
+
+        // Log prepared data
+        Log::debug('Prepared data for view:', [
+            'viewForm' => $viewForm,
+            'has_buttons' => isset($candidateData['buttons']),
+            'has_popups' => isset($candidateData['popups']),
+            'disableRowClick' => $disableRowClick
+        ]);
+        
+        return $this->renderCandidateView(
+            $name, 
+            $viewForm, 
+            'Index', 
+            $candidateData, 
+            $structuredFormFields, 
+            $disableRowClick
+        );
+
+    } catch (\Exception $e) {
+        Log::error('Error in getCandidatePage:', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        // Handle the error appropriately
+        throw $e;
     }
-
-    // dd($candidateData); 
-
-    $viewForm = $candidateData['vsetts']['viewform']; 
-     
-    
-    // Add buttons and popups to the data being passed to the view
-    $candidateData['buttons'] = $candidateData['vsetts']['Buttons'] ?? null;
-    $candidateData['popups'] = $candidateData['vsetts']['Popups'] ?? null;
-    // Check and sanitize disableRowClick
-    $disableRowClickRaw = $candidateData['vsetts']['disableRowClick'] ?? false;
-
-    // Clean the value by removing HTML tags and trimming
-    $disableRowClickClean = strip_tags(trim($disableRowClickRaw));
-
-    // Convert to a boolean
-    $disableRowClick = filter_var($disableRowClickClean, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-
-
-    $getUserSettingsString = "Fields|".$viewForm;
-    $formFields = $this->externalAuthService->collectionFormSettings($getUserSettingsString)['sets'];
-    $structuredFormFields = $this->externalAuthService->structureFormFields($formFields);
-
-    // dd($candidateData, $structuredFormFields);
-    
-    return $this->renderCandidateView($name, $viewForm, 'Index', $candidateData, $structuredFormFields, $disableRowClick);
 }
 
     
@@ -286,31 +311,44 @@ public function getCandidatePage(Request $request, $name, $call)
     }
 
     public function pollData(Request $request)
-    {
-        try {
-            $call = $request->query('call');
-            
-            // Get fresh data using your external service
-            $candidateData = $this->externalAuthService->collectionUserSettings($call);
-            
-            // Format the data
-            foreach ($candidateData['data'] as $key => &$candidate) {
-                foreach ($candidate as $field => &$value) {
-                    if (strpos($value, 'runPopButton') !== false) {
-                        $value = str_replace('~', '%7E', $value);
-                    }
-                }
-            }
-            
-            return response()->json([
-                'data' => $candidateData['data'],
-                'timestamp' => now()->timestamp
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error polling for updates: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to fetch updates'], 500);
-        }
+{
+    try {
+        $call = $request->query('call');
+        $url = $request->query('url');
+        $query = $request->query('query');
+        
+        Log::debug('pollData received parameters:', [
+            'call' => $call,
+            'url' => $url,
+            'query' => $query,
+            'raw_request' => $request->all()
+        ]);
+
+        $candidateData = $this->externalAuthService->collectionUserSettings(
+            $call,
+            $url,
+            $query
+        );
+
+        // Add debug logging for response data
+        Log::debug('Candidate data response:', [
+            'data_structure' => $candidateData ? array_keys($candidateData) : 'null',
+            'data_sample' => isset($candidateData['data']) ? array_slice($candidateData['data'], 0, 2, true) : 'no data'
+        ]);
+
+        return response()->json([
+            'data' => $candidateData['data'] ?? [],
+            'timestamp' => now()->timestamp
+        ]);
+    } catch (\Exception $e) {
+        Log::error('pollData error:', [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'parameters' => compact('call', 'url', 'query')
+        ]);
+        return response()->json(['error' => $e->getMessage()], 500);
     }
+}
 
     public function getTableData(Request $request)
     {
@@ -318,31 +356,39 @@ public function getCandidatePage(Request $request, $name, $call)
             Log::debug('Fetching table data');
             $url = $request->input('url');
             $query = $request->input('query');
-            
+            $buttons = $request->input('buttons');
+            $popups = $request->input('popups');
             
             $viewForm = $request->input('viewForm');
             $getUserSettingsString = "Fields|".$viewForm;
             $formFields = $this->externalAuthService->collectionFormSettings($getUserSettingsString)['sets'];
             $structuredFormFields = $this->externalAuthService->structureFormFields($formFields);
             
-            
-            Log::debug('Form fields processed', ['fields' => $structuredFormFields]);
-            
             $candidateData = $this->externalAuthService->collectionUserSettings($viewForm, $url, $query);
-            Log::debug('Candidate data retrieved', ['data' => $candidateData]);
-    
+            
+            // Add debug logging to inspect the structure
+            Log::debug('Raw candidate data:', ['data' => $candidateData]);
+            
             $response = [
-                'data' => array_values($candidateData['data']['data'] ?? []),
+                'data' => array_values($candidateData['data'] ?? []), // Remove one level of nesting
                 'structuredFormFields' => $structuredFormFields,
-                'buttons' => $candidateData['vsetts']['Buttons'] ?? null,
-                'popups' => $candidateData['vsetts']['Popups'] ?? null
+                'buttons' => $buttons,
+                'popups' => $popups
             ];
             
             Log::debug('Response prepared', ['response' => $response]);
             
             return response()->json($response);
         } catch (\Exception $e) {
-            Log::error('Table data error:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            Log::error('Table data error:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_params' => [
+                    'url' => $request->input('url'),
+                    'viewForm' => $request->input('viewForm'),
+                    'query' => $request->input('query')
+                ]
+            ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

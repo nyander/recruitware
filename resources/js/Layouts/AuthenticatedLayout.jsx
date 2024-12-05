@@ -399,12 +399,7 @@ export default function Authenticated({
                 {header && (
                     <header className="bg-transparent shadow-none flex justify-between items-center">
                         <div className="py-6 px-4 sm:px-6 lg:px-8">
-                            <div className="flex flex-col">
-                                <h2 className="font-semibold text-xl text-gray-800 leading-tight">
-                                    {header}
-                                </h2>
-                                <div className="h-[2px] w-[30px] bg-[#D99038] mt-2"></div>
-                            </div>
+                            {header}
                         </div>
                         <div className="py-6 px-4 sm:px-6 lg:px-8 flex items-center space-x-2">
                             <ActionButton
