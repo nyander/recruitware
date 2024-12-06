@@ -19,7 +19,10 @@ const TableField = ({ field, fieldInfo }) => {
                     return acc;
                 }, {});
 
-                console.log("Settings prepared:", settings); // Debug log
+                console.log("Settings prepared:", {
+                    settings,
+                    fieldInfo: fieldInfo,
+                });
 
                 const viewForm = settings.viewform;
                 const buttons = settings.Buttons?.replace(/\^/g, ";") || "";
@@ -46,7 +49,10 @@ const TableField = ({ field, fieldInfo }) => {
                     }
                 );
 
-                console.log("Response received:", response.data);
+                console.log("Response received:", {
+                    data: response.data,
+                    status: response.status,
+                });
                 setTableData(response.data);
             } catch (error) {
                 console.error("Error fetching table data:", {
@@ -71,8 +77,7 @@ const TableField = ({ field, fieldInfo }) => {
     }, {});
 
     // Parse columns from return-list
-    const columns =
-        settings["return-list"]?.split(/[;^]/).filter(Boolean) || [];
+    const columns = settings["labels"]?.split(/[;^]/).filter(Boolean) || [];
 
     // Create vsetts object
     const vsetts = {
@@ -93,6 +98,29 @@ const TableField = ({ field, fieldInfo }) => {
         saveData: settings.SaveData || "",
     };
 
+    // Log final props being passed to Table component
+    console.log("Table Component Props:", {
+        columns,
+        data: tableData.data || [],
+        viewForm: settings.viewform,
+        buttons: tableData.buttons,
+        popups: tableData.popups,
+        structuredFormFields: tableData.structuredFormFields,
+        formSettings,
+        disableRowClick: true,
+        vsetts,
+        updateInterval: 30000,
+    });
+
+    // Log processed settings and transformations
+    console.log("Processed Settings:", {
+        originalSettings: settings,
+        processedColumns: columns,
+        processedVsetts: vsetts,
+        processedFormSettings: formSettings,
+        tableDataState: tableData,
+    });
+
     return (
         <div className="border rounded-lg overflow-hidden">
             <Table
@@ -103,7 +131,7 @@ const TableField = ({ field, fieldInfo }) => {
                 popups={tableData.popups}
                 structuredFormFields={tableData.structuredFormFields}
                 formSettings={formSettings}
-                disableRowClick={true}
+                disableRowClick={false}
                 vsetts={vsetts}
                 updateInterval={30000}
             />

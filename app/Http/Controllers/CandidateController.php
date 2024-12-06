@@ -333,7 +333,7 @@ public function getCandidatePage(Request $request, $name, $call)
         // Add debug logging for response data
         Log::debug('Candidate data response:', [
             'data_structure' => $candidateData ? array_keys($candidateData) : 'null',
-            'data_sample' => isset($candidateData['data']) ? array_slice($candidateData['data'], 0, 2, true) : 'no data'
+            'data_sample' => $candidateData,
         ]);
 
         return response()->json([

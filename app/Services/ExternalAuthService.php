@@ -331,7 +331,7 @@ class ExternalAuthService
         $data = isset($args['data']) ? $args['data'] : '';
 
         
-    
+        Log::info('Before request data url:', ['url' => $url, 'data' => $data]);
 
         
         // dd(session('cookieJar'));
@@ -350,11 +350,17 @@ class ExternalAuthService
         Log::info('Cookies sent with request:', ['cookies' => Session::get('cookieJar')]);
         $resp = $response->getBody()->getContents();
 
+        Log::debug('getDataUrl Response', ['resp' => $resp]);
+
+        
+
         // dd($resp);
         
        
         $resp1 = str_replace("\n", '',$resp);
         $resp2 = str_replace("~END~~END~", '~END~',$resp1);
+        Log::debug('resp1 Data returned', ['resp1' => $resp1]);
+        Log::debug('resp2 Data returned', ['resp2' => $resp2]);
 		$arrel = explode('~END~',$resp2);
         
         $i1 = 0;
@@ -383,25 +389,36 @@ class ExternalAuthService
                 ]);
             }
             
-            
+            Log::debug('Return list split general', ['raw_return_list' => $args]);
+
+            Log::debug('Return arrel' , ['arrel' => $arrel]);
             foreach ($arrel as $val) {
+                
+                Log::debug('Before val Value Start' , ['val' => $val]);
                 if ($i1 > 0) {
                     // dd($val);
                     if ($args['return-type'] == 'View') {
                         // Skip HTML closing tags
-                        if (strpos($val, '</body>') !== false || strpos($val, '</html>') !== false) {
-                            continue;
-                        }
+                        
+
+
+                        Log::debug('Return val Value Start' , ['val' => $val]);
                     
+                        
                         $a1 = preg_split('/\|/', $val);
                         
                         Log::debug('Processing row data:', [
                             'row_data' => $val,
                             'split_data' => $a1,
                             'rList_count' => count($rList),
-                            'split_data_count' => count($a1)
+                            'split_data_count' => count($a1),
+                            'val' => $val,
+                            'a1' => count($a1),
+                            'rList' => count($rList),
+                            'is a1 >= rList' => count($a1) >= count($rList),
                         ]);
                     
+                        Log::debug('Return val Value End Result' , ['a1' => $a1]);
                         if (count($a1) >= count($rList)) {
                             $docId = end($a1); // Get last element safely
                             $dataValues = array_slice($a1, 0, count($rList)); // Take only needed values
@@ -414,6 +431,8 @@ class ExternalAuthService
                                 $this->vData[$docId]['DocID'] = $docId;
                             }
                         }
+
+                        
                     } elseif ($args['return-type'] == 'Fields') {
                         if (strpos($val, '#@#') > 1) {
                             $a1 = preg_split('/#@#/', $val);
@@ -434,6 +453,11 @@ class ExternalAuthService
                 $i1++;
             }
 
+            Log::debug('HERE IS THE FINAL VDATA:', [
+                'return-type' => $args['return-type'],
+                'VDATA' => $this->vData,
+
+            ]);
             return $this->vData;
         } catch (\Exception $e) {
             Log::error('Error in getDataUrl:', [
@@ -581,7 +605,7 @@ class ExternalAuthService
     $finalUrl = $url ?? $defaultUrl;
     $finalQuery = $query ?? $defaultQuery;
 
-    Log::debug('URL + QUERY', ['url' => $url, 'query' => $query]);
+    Log::debug('collectionUserSettings URL and Query', ['url' => $url, 'query' => $query]);
 
     // Prepare request payload
     $v1 = [
@@ -603,6 +627,8 @@ class ExternalAuthService
         'vsetts' => $this->vSetts,
         'timestamp' => now()->timestamp,
     ];
+
+    Log::debug('Log on StructuredData', ['structuredData' => $structuredData]);
 
     return $structuredData;
 }

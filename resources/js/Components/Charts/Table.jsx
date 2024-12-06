@@ -88,7 +88,7 @@ const Table = ({
     popups,
     structuredFormFields,
     formSettings = {},
-    disableRowClick = false,
+    disableRowClick = true,
     singleSelectMode = true,
     vsetts = {},
     updateInterval = 30000,
@@ -124,7 +124,8 @@ const Table = ({
                     /\[RND\]/g,
                     Math.random().toString(36).substring(7)
                 );
-                const processedQuery = vsetts?.query?.replace(/\^/g, "~");
+                console.log("HERE IS THE PROCESSED QUERY: ", vsetts?.query);
+                const processedQuery = vsetts?.query?.replace(/\^/g, ";");
 
                 console.log("Polling request details:", {
                     url: processedUrl,
@@ -142,6 +143,21 @@ const Table = ({
                 });
 
                 console.log("Polling response:", response.data);
+
+                if (response.data?.data) {
+                    // Process the data and ensure it's in the correct format
+                    const processedData = Array.isArray(response.data.data)
+                        ? response.data.data
+                        : Object.values(response.data.data || {});
+
+                    if (processedData.length > 0) {
+                        // Update both tableData and currentData states
+                        setTableData(processedData);
+                        setCurrentData(processedData);
+                        setLastUpdateTime(Date.now());
+                        console.log("Updated table data:", processedData);
+                    }
+                }
 
                 // ... rest of the code
             } catch (error) {
