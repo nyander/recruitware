@@ -397,7 +397,7 @@ export default function Authenticated({
             <div className="flex-1 flex flex-col min-h-screen">
                 {/* Page Heading */}
                 {header && (
-                    <header className="bg-transparent shadow-none flex justify-between items-center">
+                    <header className="shadow-none flex justify-between items-center bg-[#E7E7E6]">
                         <div className="py-6 px-4 sm:px-6 lg:px-8">
                             {header}
                         </div>

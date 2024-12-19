@@ -114,6 +114,8 @@ public function getCandidatePage(Request $request, $name, $call)
     try {
         $candidateData = $this->externalAuthService->collectionUserSettings($call);
 
+        // dd($candidateData);
+
         // Add debug logging
         Log::debug('Candidate Data from service:', [
             'data_keys' => array_keys($candidateData),
