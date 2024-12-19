@@ -933,7 +933,7 @@ const Table = ({
             // Get the field from the popup configuration
             const field = popupConfig.fields[0]; // Usually the first field for dropdowns
 
-            // Create the updates object that matches the structure expected by handlePopupSubmit
+            // Create the updates object
             const updates = {
                 ...submitButton.updates, // Include any predefined updates from the button config
                 [field]: value, // Add the selected value for the field
@@ -948,21 +948,17 @@ const Table = ({
                 }
             });
 
-            // Submit the changes using the same logic as popup submission
+            // Submit the changes to the `candidate.store` endpoint
             await router.post(route("candidates.store"), {
                 changes: updates,
                 saveUrl: button.saveUrl || formSettings?.saveURL || "",
                 saveData: button.saveData || formSettings?.saveData || "",
             });
 
-            // Optionally refresh the data after submission
-            if (pollingEnabled) {
-                // Trigger an immediate poll for fresh data
-                await pollForUpdates();
-            }
+            // Refresh the page to load the updated URL/data
+            window.location.reload();
         } catch (error) {
             console.error("Error handling dropdown change:", error);
-            // You might want to show an error notification here
         } finally {
             setIsSubmitting(false);
         }
