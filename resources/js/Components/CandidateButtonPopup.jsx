@@ -14,6 +14,7 @@ const CandidateButtonPopup = ({
     const [formData, setFormData] = useState({});
     const [changedFields, setChangedFields] = useState({});
     const [initialFormValues, setInitialFormValues] = useState({});
+    const [attachmentValues, setAttachmentValues] = useState({}); // Add this state
 
     const handleButtonClick = (button) => {
         if (button.action === "closePopup") {
@@ -21,14 +22,39 @@ const CandidateButtonPopup = ({
             return;
         }
 
+        // Log the current states to debug
+        console.log("Current States:", {
+            formData,
+            changedFields,
+            attachmentValues,
+            buttonUpdates: button.updates,
+        });
+
+        // Create submission data including attachments
         const updatedData = {
             ...formData,
+            ...changedFields,
             ...button.updates,
+            // Explicitly include AttachFile from attachmentValues
+            AttachFile:
+                attachmentValues["AttachFile"] ||
+                formData["AttachFile"] ||
+                null,
         };
 
-        console.log("Button Click - Updated Data:", updatedData);
-
+        console.log("Final submission data:", updatedData);
         handleSubmit(updatedData);
+    };
+
+    const handleInputChange = (field, value) => {
+        setAttachmentValues((prev) => ({
+            ...prev,
+            [field]: value, // Update attachment-specific fields
+        }));
+        setFormData((prev) => ({
+            ...prev,
+            [field]: value, // Update general form data
+        }));
     };
 
     useEffect(() => {
@@ -38,38 +64,65 @@ const CandidateButtonPopup = ({
         console.log("Initial popup.initialData:", popup.initialData);
 
         const initialValues = {};
+        const initialAttachments = {};
 
         if (popup.initialData) {
             popup.fields.forEach((field) => {
                 const cleanField = field.trim();
+                const fieldInfo = formFields[cleanField];
+                const isAttachment =
+                    fieldInfo?.type?.toLowerCase() === "attach";
+
+                if (isAttachment) {
+                    initialAttachments[cleanField] =
+                        popup.initialData[cleanField] || "";
+                }
                 initialValues[cleanField] = popup.initialData[cleanField] || "";
             });
         }
 
         console.log("Final form values set:", initialValues);
+        console.log("Initial attachments:", initialAttachments);
 
         setFormData(initialValues);
         setInitialFormValues(initialValues);
+        setAttachmentValues(initialAttachments);
         setChangedFields({});
+
+        // Cleanup function
+        return () => {
+            setFormData({});
+            setInitialFormValues({});
+            setAttachmentValues({});
+            setChangedFields({});
+        };
     }, [popup?.id, popup?.initialData, formFields]);
 
     const handleFieldChange = (field, value) => {
-        if (isSubmitting) return;
+        console.log("Field Change Event:", { field, value });
+
+        const fieldInfo = formFields[field];
+        const isAttachment = fieldInfo?.type?.toLowerCase() === "attach";
+
+        if (isAttachment) {
+            // Store raw file path
+            const filePath = value.split("?")[0]; // Remove any query parameters
+            setAttachmentValues((prev) => ({
+                ...prev,
+                [field]: filePath,
+            }));
+
+            // Also update changed fields for attachments
+            setChangedFields((prev) => ({
+                ...prev,
+                [field]: filePath,
+            }));
+        }
 
         setFormData((prev) => ({
             ...prev,
             [field]: value,
         }));
-
-        if (value !== initialFormValues[field]) {
-            setChangedFields((prev) => ({
-                ...prev,
-                [field]: value,
-            }));
-        } else {
-            const { [field]: removed, ...rest } = changedFields;
-            setChangedFields(rest);
-        }
     };
 
     useEffect(() => {
@@ -97,6 +150,11 @@ const CandidateButtonPopup = ({
             formFields,
             isEditMode: true,
         };
+
+        // Pass handleInputChange for attachment fields
+        if (fieldInfo.type?.toLowerCase() === "attach") {
+            commonProps.handleInputChange = handleInputChange;
+        }
 
         const FieldComponent =
             FormFields[fieldInfo.type?.toLowerCase()] || FormFields.default;

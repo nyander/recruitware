@@ -28,6 +28,12 @@ const AttachmentField = ({
                             "%20"
                         );
 
+                        console.log("File uploaded:", {
+                            field,
+                            rawFileLocation,
+                            encodedFileLocation,
+                        });
+
                         setFilename(rawFileLocation);
                         handleInputChange(field, encodedFileLocation);
                         setUploadStatus("File uploaded successfully");
@@ -48,6 +54,7 @@ const AttachmentField = ({
             const encodedValue = value.replace(/\s+/g, "%20");
             setFilename(value);
             setFileLocation(encodedValue);
+            handleInputChange(field, encodedValue);
         }
 
         return () => {
@@ -86,6 +93,15 @@ const AttachmentField = ({
                         value={filename}
                         disabled
                         className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md bg-gray-50"
+                    />
+                    <input
+                        type="hidden"
+                        id={field}
+                        name={field}
+                        value={fileLocation}
+                        onChange={(e) =>
+                            handleInputChange(field, e.target.value)
+                        }
                     />
                     <input type="hidden" id={`${field}_id`} value={fileId} />
                     {uploadStatus && (

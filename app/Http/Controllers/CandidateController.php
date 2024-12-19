@@ -204,7 +204,7 @@ public function getCandidatePage(Request $request, $name, $call)
             $saveUrl = $request->input('saveUrl');
             $saveData = $request->input('saveData');
 
-            // dd($request);
+            dd($request);
 
             // Process the changes to replace $Author with session authID
             $processedChanges = collect($changes)->map(function ($value, $key) {

@@ -215,11 +215,35 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
         try {
             setIsSubmitting(true);
 
+            // Debug logging to see popup submission data
+            console.log("Submitting popup data:", {
+                rawData: updates,
+                attachments: Object.entries(updates)
+                    .filter(
+                        ([key, value]) =>
+                            formFields[key]?.type?.toLowerCase() === "attach"
+                    )
+                    .reduce(
+                        (acc, [key, value]) => ({ ...acc, [key]: value }),
+                        {}
+                    ),
+            });
+
+            // Process the updates, handling special values like $Author$
             const processedUpdates = Object.entries(updates).reduce(
                 (acc, [key, value]) => {
+                    // Handle special $Author$ case
                     if (value === "$Author$") {
                         value = auth.user.name;
                     }
+
+                    // Handle attachment fields
+                    const fieldInfo = formFields[key];
+                    if (fieldInfo?.type?.toLowerCase() === "attach") {
+                        // Remove any query parameters from file paths
+                        value = value.split("?")[0];
+                    }
+
                     acc[key] = value;
                     return acc;
                 },
@@ -235,7 +259,10 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
 
             setActivePopup(null);
         } catch (error) {
-            console.error("Popup submission error:", error);
+            console.error("Popup submission error:", error, {
+                updates,
+                processedData: error.response?.data,
+            });
         } finally {
             setIsSubmitting(false);
         }
@@ -490,12 +517,22 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
             <CandidateButtonPopup
                 isOpen={!!activePopup}
                 onClose={() => setActivePopup(null)}
-                popup={activePopup}
-                formFields={formFields} // This is correct
-                formSettings={formSettings}
+                popup={{
+                    ...activePopup,
+                    initialData: {
+                        ...currentFormValues,
+                        ...(activePopup?.initialData || {}),
+                    },
+                }}
+                formFields={formFields}
+                formSettings={{
+                    ...formSettings,
+                    saveURL: activePopup?.saveUrl || formSettings.saveURL,
+                    saveData: activePopup?.saveData || formSettings.saveData,
+                }}
+                formData={currentFormValues} // Add this line to pass formData
                 handleSubmit={handlePopupSubmit}
                 isSubmitting={isSubmitting}
-                formData={currentFormValues}
             />
         </AuthenticatedLayout>
     );

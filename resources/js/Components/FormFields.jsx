@@ -2,10 +2,13 @@ import React from "react";
 import AttachmentField from "./AttachmentField";
 import { Table } from "lucide-react";
 import TableField from "./TableField";
+const MAX_SCROLL_HEIGHT = "250px"; // Adjustable max height
 
 export const FormFields = {
     select: ({ field, fieldInfo, value, onChange, isDisabled, formFields }) => {
         const options = getSelectOptions(field, fieldInfo, formFields);
+        const isLongList = options.length > 4;
+
         return (
             <select
                 id={field}
@@ -13,9 +16,14 @@ export const FormFields = {
                 value={value || ""}
                 onChange={(e) => onChange(field, e.target.value)}
                 disabled={isDisabled}
+                size={isLongList ? 4 : undefined}
                 className={`shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md ${
                     isDisabled ? "bg-gray-50 cursor-not-allowed opacity-75" : ""
                 }`}
+                style={{
+                    maxHeight: isLongList ? MAX_SCROLL_HEIGHT : "auto",
+                    overflowY: isLongList ? "auto" : "visible",
+                }}
             >
                 <option value="">Select {fieldInfo.label}</option>
                 {options.map((option, index) => (
@@ -39,7 +47,16 @@ export const FormFields = {
         const selectedValues = value?.split(";").filter(Boolean) || [];
 
         return (
-            <div className="space-y-2">
+            <div
+                className="space-y-2"
+                style={{
+                    maxHeight: options.length > 4 ? MAX_SCROLL_HEIGHT : "auto",
+                    overflowY: options.length > 4 ? "auto" : "visible",
+                    border: options.length > 4 ? "1px solid #ccc" : "none",
+                    padding: options.length > 4 ? "8px" : "0",
+                    borderRadius: "4px",
+                }}
+            >
                 {options.map((option, index) => (
                     <label key={index} className="flex items-center space-x-3">
                         <input
