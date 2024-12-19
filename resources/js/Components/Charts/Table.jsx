@@ -50,11 +50,15 @@ const MultiSelectDropdown = ({
             </div>
             {isOpen && (
                 <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-                    {options.length === 0 && (
-                        <div className="p-2 text-sm text-gray-500 italic">
-                            No options available with current filters
-                        </div>
-                    )}
+                    <label className="flex items-center p-2 hover:bg-gray-50">
+                        <input
+                            type="checkbox"
+                            checked={value.length === 0} // No filter if value is empty
+                            onChange={() => onChange([])} // Pass empty array for "No Filter"
+                            className="mr-2"
+                        />
+                        <span className="text-sm">No Filter</span>
+                    </label>
                     {options.map((option, index) => (
                         <label
                             key={index}
@@ -446,6 +450,8 @@ const Table = ({
                 valueString,
                 saveUrl,
                 saveData,
+                type = "button", // Default to button if not specified
+                style = "", // Default to empty style
             ] = buttonStr.split(";");
             return {
                 name,
@@ -455,6 +461,8 @@ const Table = ({
                 values: valueString ? valueString.split("~") : [],
                 saveUrl: saveUrl || "",
                 saveData: saveData || "",
+                type: type || "button",
+                style: style || "",
             };
         });
         setParsedButtons(buttonsList);
@@ -559,7 +567,7 @@ const Table = ({
 
                     switch (fieldType) {
                         case "select":
-                            const options = getSelectOptions(
+                            const options = resolveLookupOptions(
                                 field,
                                 fieldInfo,
                                 structuredFormFields
@@ -663,16 +671,17 @@ const Table = ({
 
     const handleFilterChange = (columnId, values) => {
         setFilterValues((prev) => {
-            const newFilters = {
-                ...prev,
-                [columnId]: values,
-            };
+            const newFilters = { ...prev };
+            if (values.length === 0) {
+                // Remove the filter if no values are selected
+                delete newFilters[columnId];
+            } else {
+                newFilters[columnId] = values;
+            }
 
-            // If Location is changed, clear Job Type filter
             if (columnId === "Location") {
                 newFilters["Job Type"] = [];
             }
-
             return newFilters;
         });
     };
@@ -691,6 +700,7 @@ const Table = ({
 
         Object.entries(filterValues).forEach(([columnId, selectedValues]) => {
             if (selectedValues && selectedValues.length > 0) {
+                // Filter only if there are selected values
                 filtered = filtered.filter((row) => {
                     const value = row[columnId] || row[columnId?.toLowerCase()];
                     return selectedValues.includes(value?.toString());
@@ -779,6 +789,215 @@ const Table = ({
                 setIsSubmitting(false);
             }
         },
+    };
+
+    // Add these functions before the return statement, near your other function definitions
+
+    const renderButton = (button) => {
+        if (button.type?.toLowerCase() === "dropdown") {
+            const popupConfig = parsedPopups[button.popupId];
+            const field = popupConfig?.fields?.[0];
+            const fieldInfo = structuredFormFields[field];
+
+            // Get options using the lookup resolution
+            const options = resolveLookupOptions(
+                field,
+                fieldInfo,
+                structuredFormFields
+            );
+
+            return (
+                <div className="relative inline-block w-64">
+                    <select
+                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                        onChange={(e) =>
+                            handleDropdownChange(button, e.target.value)
+                        }
+                        disabled={isSubmitting}
+                        defaultValue=""
+                    >
+                        <option value="">{`Select ${button.name}`}</option>
+                        {options.map((option, index) => (
+                            <option
+                                key={index}
+                                value={option.value || option.label}
+                            >
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            );
+        }
+
+        return (
+            <button
+                type="button"
+                onClick={() => {
+                    const popupConfig = parsedPopups[button.popupId];
+                    if (popupConfig) {
+                        const mergedPopup = {
+                            ...popupConfig,
+                            initialData:
+                                selectedCellData[0]?.popupParams?.initialData ||
+                                {},
+                            saveUrl:
+                                button.saveUrl || popupConfig.saveUrl || "",
+                            saveData:
+                                button.saveData || popupConfig.saveData || "",
+                        };
+                        setActivePopup(mergedPopup);
+                    }
+                }}
+                disabled={isSubmitting}
+                className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+                    button.style || ""
+                }`}
+            >
+                {button.name}
+            </button>
+        );
+    };
+    const pollForUpdates = async () => {
+        try {
+            const processedUrl = vsetts?.url?.replace(
+                /\[RND\]/g,
+                Math.random().toString(36).substring(7)
+            );
+            const processedQuery = vsetts?.query?.replace(/\^/g, ";");
+            const processedReturn = vsetts?.["return-list"]?.replace(
+                /\^/g,
+                ";"
+            );
+
+            console.log("Polling request:", {
+                processedUrl,
+                processedQuery,
+                processedReturn,
+            });
+
+            const response = await axios.get(route("candidates.poll"), {
+                params: {
+                    call: vsetts?.viewform,
+                    url: processedUrl,
+                    query: processedQuery,
+                    ret: processedReturn,
+                },
+            });
+
+            console.log("Polling respond:", response.data);
+
+            if (response.data?.data) {
+                const processedData = Array.isArray(response.data.data)
+                    ? response.data.data
+                    : Object.values(response.data.data || {});
+
+                if (processedData.length > 0) {
+                    setTableData(processedData);
+                    setCurrentData(processedData);
+                    setLastUpdateTime(Date.now());
+                }
+            }
+        } catch (error) {
+            console.error("Polling error:", error);
+        }
+    };
+
+    const handleDropdownChange = async (button, value) => {
+        try {
+            setIsSubmitting(true);
+
+            // Get the popup configuration associated with this button
+            const popupConfig = parsedPopups[button.popupId];
+            if (!popupConfig) {
+                console.error(
+                    "No popup configuration found for button:",
+                    button
+                );
+                return;
+            }
+
+            // Find the submit/change button in the popup configuration
+            const submitButton = popupConfig.buttons.find(
+                (btn) =>
+                    btn.name.toLowerCase() === "change" ||
+                    btn.name.toLowerCase() === "submit" ||
+                    btn.updates // Any button with updates is likely the submit button
+            );
+
+            if (!submitButton) {
+                console.error("No submit button found in popup configuration");
+                return;
+            }
+
+            // Get the field from the popup configuration
+            const field = popupConfig.fields[0]; // Usually the first field for dropdowns
+
+            // Create the updates object that matches the structure expected by handlePopupSubmit
+            const updates = {
+                ...submitButton.updates, // Include any predefined updates from the button config
+                [field]: value, // Add the selected value for the field
+            };
+
+            // If there are any special values like $Author$ or $AuthorID$, handle them
+            Object.keys(updates).forEach((key) => {
+                if (updates[key] === "$Author$") {
+                    updates[key] = auth?.user?.name || "";
+                } else if (updates[key] === "$AuthorID$") {
+                    updates[key] = auth?.user?.id || "";
+                }
+            });
+
+            // Submit the changes using the same logic as popup submission
+            await router.post(route("candidates.store"), {
+                changes: updates,
+                saveUrl: button.saveUrl || formSettings?.saveURL || "",
+                saveData: button.saveData || formSettings?.saveData || "",
+            });
+
+            // Optionally refresh the data after submission
+            if (pollingEnabled) {
+                // Trigger an immediate poll for fresh data
+                await pollForUpdates();
+            }
+        } catch (error) {
+            console.error("Error handling dropdown change:", error);
+            // You might want to show an error notification here
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const resolveLookupOptions = (field, fieldInfo, structuredFormFields) => {
+        // Check if field has options
+        if (!fieldInfo?.options?.length) {
+            return [];
+        }
+
+        // Check first option for lookup reference
+        const firstOption = fieldInfo.options[0];
+        if (!firstOption?.value?.startsWith("[LOOKUP-")) {
+            return fieldInfo.options;
+        }
+
+        // Extract lookup name from [LOOKUP-Something]
+        const lookupMatch = firstOption.value.match(/\[LOOKUP-(.*?)\]/);
+        if (!lookupMatch) {
+            return fieldInfo.options;
+        }
+
+        const lookupName = lookupMatch[1];
+        const lookupField = structuredFormFields[lookupName];
+
+        if (!lookupField || lookupField.type !== "Lookup") {
+            console.warn(
+                `Lookup field ${lookupName} not found or not of type Lookup`
+            );
+            return fieldInfo.options;
+        }
+
+        // Return the lookup field's options
+        return lookupField.options || [];
     };
 
     return (
@@ -977,34 +1196,7 @@ const Table = ({
                     <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
                         <div className="flex gap-2 justify-end">
                             {parsedButtons.map((button, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => {
-                                        const popupConfig =
-                                            parsedPopups[button.popupId];
-                                        if (popupConfig) {
-                                            const mergedPopup = {
-                                                ...popupConfig,
-                                                initialData:
-                                                    selectedCellData[0]
-                                                        ?.popupParams
-                                                        ?.initialData || {},
-                                                saveUrl:
-                                                    button.saveUrl ||
-                                                    popupConfig.saveUrl ||
-                                                    "",
-                                                saveData:
-                                                    button.saveData ||
-                                                    popupConfig.saveData ||
-                                                    "",
-                                            };
-                                            setActivePopup(mergedPopup);
-                                        }
-                                    }}
-                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                >
-                                    {button.name}
-                                </button>
+                                <div key={index}>{renderButton(button)}</div>
                             ))}
                         </div>
                     </div>
@@ -1093,7 +1285,7 @@ const Table = ({
                                                             key={key}
                                                             {...cellProps}
                                                             onClick={(e) => {
-                                                                e.stopPropagation();
+                                                                e.stopPrfopagation();
                                                                 handleCellClick(
                                                                     {
                                                                         cell: cell,

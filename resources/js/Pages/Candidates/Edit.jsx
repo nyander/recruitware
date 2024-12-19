@@ -91,23 +91,39 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
 
     const parseButtonsAndPopups = (buttonString, popupString) => {
         const buttons = buttonString.split("@@").map((buttonStr, index) => {
-            const [name, icon, popupId, condition] = buttonStr.split(";");
+            const [
+                name,
+                icon,
+                popupId,
+                fieldString,
+                valueString,
+                saveUrl,
+                saveData,
+                type = "button", // Added type parameter
+                style = "", // Added style parameter
+            ] = buttonStr.split(";");
 
-            // Evaluate condition - if true, button should be hidden
-            // So we show the button when condition is false
-            const isVisible = !evaluateCondition(condition, formSettings.data);
+            // Evaluate condition if present (backward compatibility)
+            const condition =
+                fieldString?.includes("=") || fieldString?.includes("!=")
+                    ? fieldString
+                    : null;
 
-            console.log(`Button "${name}" visibility:`, {
-                condition: condition,
-                isVisible: isVisible,
-                data: formSettings.data,
-            });
+            // Only evaluate condition if it exists
+            const isVisible = condition
+                ? !evaluateCondition(condition, formSettings.data)
+                : true;
 
             return {
                 name,
                 icon,
-                popupId: popupId.replace("loadPop_", ""),
-                condition,
+                popupId: popupId?.replace("loadPop_", ""),
+                fields: !condition && fieldString ? fieldString.split("~") : [],
+                values: valueString ? valueString.split("~") : [],
+                saveUrl: saveUrl || "",
+                saveData: saveData || "",
+                type: type || "button",
+                style: style || "",
                 visible: isVisible,
             };
         });
@@ -229,19 +245,14 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
                     ),
             });
 
-            // Process the updates, handling special values like $Author$
             const processedUpdates = Object.entries(updates).reduce(
                 (acc, [key, value]) => {
-                    // Handle special $Author$ case
-                    if (value === "$Author$") {
+                    // Handle special values
+                    if (value === "$Author" || value === "$Author$") {
                         value = auth.user.name;
                     }
-
-                    // Handle attachment fields
-                    const fieldInfo = formFields[key];
-                    if (fieldInfo?.type?.toLowerCase() === "attach") {
-                        // Remove any query parameters from file paths
-                        value = value.split("?")[0];
+                    if (value === "$AuthorID" || value === "$AuthorID$") {
+                        value = auth.user.id;
                     }
 
                     acc[key] = value;
@@ -253,22 +264,94 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
             await router.post(route("candidates.store"), {
                 id: formSettings.data.id,
                 changes: processedUpdates,
-                saveUrl: formSettings.saveURL,
-                saveData: formSettings.saveData,
+                saveUrl: updates.saveUrl || formSettings.saveURL,
+                saveData: updates.saveData || formSettings.saveData,
             });
 
             setActivePopup(null);
         } catch (error) {
-            console.error("Popup submission error:", error, {
-                updates,
-                processedData: error.response?.data,
-            });
+            console.error("Popup submission error:", error);
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const hasUnsavedChanges = Object.keys(changedFields).length > 0;
+
+    const renderButton = (button) => {
+        if (button.type?.toLowerCase() === "dropdown") {
+            const popupConfig = parsedPopups[button.popupId];
+            const fields = button.fields || popupConfig?.fields || [];
+            const values = button.values || popupConfig?.values || [];
+
+            const options = fields.map((field, index) => ({
+                label: field,
+                value: values[index] || field,
+            }));
+
+            return (
+                <div className="relative inline-block w-64">
+                    <select
+                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                        onChange={(e) =>
+                            handleDropdownChange(button, e.target.value)
+                        }
+                        disabled={isSubmitting}
+                        defaultValue=""
+                    >
+                        <option value="">{`Select ${button.name}`}</option>
+                        {options.map((option, index) => (
+                            <option key={index} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            );
+        }
+
+        return (
+            <button
+                type="button"
+                onClick={() => setActivePopup(parsedPopups[button.popupId])}
+                disabled={isSubmitting}
+                className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+                    button.style || ""
+                }`}
+            >
+                {button.name}
+            </button>
+        );
+    };
+
+    const handleDropdownChange = async (button, value) => {
+        try {
+            setIsSubmitting(true);
+            console.log("Dropdown change:", {
+                button,
+                value,
+                popupConfig: parsedPopups[button.popupId],
+            });
+
+            // Create the update data using the first field
+            const updates = {
+                [button.fields[0]]: value,
+            };
+
+            // Log the updates being sent
+            console.log("Submitting updates:", updates);
+
+            await handlePopupSubmit({
+                changes: updates,
+                saveUrl: button.saveUrl,
+                saveData: button.saveData,
+            });
+        } catch (error) {
+            console.error("Dropdown change error:", error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const renderButtons = () => {
         if (!parsedButtons.length) return null;
@@ -279,17 +362,7 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
                     {parsedButtons
                         .filter((button) => button.visible)
                         .map((button, index) => (
-                            <button
-                                key={index}
-                                type="button"
-                                onClick={() =>
-                                    setActivePopup(parsedPopups[button.popupId])
-                                }
-                                disabled={isSubmitting}
-                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                            >
-                                {button.name}
-                            </button>
+                            <div key={index}>{renderButton(button)}</div>
                         ))}
                 </div>
             </div>

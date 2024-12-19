@@ -114,7 +114,6 @@ public function getCandidatePage(Request $request, $name, $call)
     try {
         $candidateData = $this->externalAuthService->collectionUserSettings($call);
 
-        // dd($candidateData);
 
         // Add debug logging
         Log::debug('Candidate Data from service:', [
@@ -150,6 +149,7 @@ public function getCandidatePage(Request $request, $name, $call)
         $formFields = $this->externalAuthService->collectionFormSettings($getUserSettingsString)['sets'] ?? [];
         $structuredFormFields = $this->externalAuthService->structureFormFields($formFields);
 
+        // dd($formFields, $structuredFormFields);
         // Log prepared data
         Log::debug('Prepared data for view:', [
             'viewForm' => $viewForm,
