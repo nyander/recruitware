@@ -249,7 +249,7 @@ public function getCandidatePage(Request $request, $name, $call)
      */
     public function edit(Request $request,  $viewForm,$id)
     {
-        $getUserSettingsString = "Fields|".$viewForm;
+        $getUserSettingsString = "Fields|".$viewForm."|". $id;
         $formFields = $this->externalAuthService->collectionFormSettings($getUserSettingsString)['sets'];
         $structuredFormFields = $this->externalAuthService->structureFormFields($formFields);
 
