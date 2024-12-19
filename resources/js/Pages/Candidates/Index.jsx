@@ -42,17 +42,23 @@ const Index = ({
             auth={auth}
             menu={menu}
             header={
-                <div className="font-semibold text-xl text-gray-800 leading-tight">
-                    {status}
+                <div>
+                    <h2 className="font-semibold text-xl text-gray-800 leading-tight">
+                        {status}
+                    </h2>
+                    <div className="h-[3px] w-10 bg-orange-500 mt-2"></div>
                 </div>
             }
         >
             <Head title={`${status} ${viewForm}`} />
 
-            <div className="flex-grow">
-                <div className="mx-auto max-w-screen-xl h-full">
+            <div className="flex-grow h-screen">
+                <div className="mx-auto w-full ">
                     {/* Adjusted max-width and ensured full height */}
-                    <div className="bg-white h-full overflow-hidden shadow-sm sm:rounded-lg">
+                    <div
+                        className="bg-white h-full overflow-hidden shadow-sm sm:rounded-lg border-[3px] border-solid"
+                        style={{ borderColor: "#213341" }}
+                    >
                         <div className="p-6 text-gray-900 h-full">
                             <div
                                 className="h-full max-h-full overflow-y-auto"
