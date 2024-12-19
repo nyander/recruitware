@@ -367,11 +367,7 @@ class ExternalAuthService
         $rList = [];
 
         
-        if ($args['return-type'] == 'View') {
-            
-            $rList = preg_split('/;/', $args['return-list']);
-        }
-
+        
         
         $this->vData = [];
 
@@ -422,7 +418,14 @@ class ExternalAuthService
                         if (count($a1) >= count($rList)) {
                             $docId = end($a1); // Get last element safely
                             $dataValues = array_slice($a1, 0, count($rList)); // Take only needed values
-                            
+                            Log::debug('Before the Data values is created:', [
+                                'vData' => $this->vData,
+                            ]);
+                            Log::debug('Data values Created Here:', [
+                                'doc_id' => $docId,
+                                'data_values' => $dataValues,
+                                'rList' => $rList
+                            ]);
                             if (count($dataValues) === count($rList)) {
                                 $this->vData[$docId] = array_combine(
                                     array_map('trim', $rList),
@@ -430,6 +433,9 @@ class ExternalAuthService
                                 );
                                 $this->vData[$docId]['DocID'] = $docId;
                             }
+                            Log::debug('After the Data values is created:', [
+                                'vData' => $this->vData,
+                            ]);
                         }
 
                         
@@ -581,7 +587,7 @@ class ExternalAuthService
         return $structuredData;
     }
 
-    public function collectionUserSettings($content, $url = null, $query = null)
+    public function collectionUserSettings($content, $url = null, $query = null, $return = null)
 {
     // DEFAULT URL and QUERY
     $defaultUrl = "{$this->baseUrl}/[FLDR]/candidates.nsf/ag.searchdata?openagent&[RND]";
@@ -601,11 +607,14 @@ class ExternalAuthService
         $ret = $this->vSetts['return-list'];
     }
 
+    Log::debug('collectionUserSettings passed in URL and Query and return', ['url' => $url, 'query' => $query, 'return' => $return]);
     // Use provided URL and query, or fall back to defaults
     $finalUrl = $url ?? $defaultUrl;
     $finalQuery = $query ?? $defaultQuery;
+    $finalRet = $return ?? $ret;
 
-    Log::debug('collectionUserSettings URL and Query', ['url' => $url, 'query' => $query]);
+    Log::debug('collectionUserSettings URL and Query and return', ['url' => $finalUrl, 'query' => $finalQuery, 'return' => $finalRet]);
+    
 
     // Prepare request payload
     $v1 = [
@@ -613,7 +622,7 @@ class ExternalAuthService
         'is-post' => '1', // Change this to 0 for getFormSettings
         'return-type' => 'View', // Use 'Doc' for getFormSettings
         'data' => $finalQuery, // Use query string
-        'return-list' => $ret, // List of fields to return
+        'return-list' => $finalRet, // List of fields to return
     ];
 
     // Fetch data from the external service

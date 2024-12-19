@@ -21,9 +21,10 @@
         "vite": "^5.0"
     },
     "dependencies": {
+        "@fortawesome/fontawesome-free": "^6.7.2",
         "@heroicons/react": "^2.1.5",
         "@inertiajs/inertia": "^0.11.1",
-        "chart.js": "^4.4.3",
+        "chart.js": "^4.4.7",
         "dompurify": "^3.2.1",
         "lucide-react": "^0.428.0",
         "prop-types": "^15.8.1",

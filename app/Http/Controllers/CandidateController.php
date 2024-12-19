@@ -128,6 +128,7 @@ public function getCandidatePage(Request $request, $name, $call)
                 }
             }
         }
+        
 
         // Safely get vsetts values with fallbacks
         $vsetts = $candidateData['vsetts'] ?? [];
@@ -203,7 +204,7 @@ public function getCandidatePage(Request $request, $name, $call)
             $saveUrl = $request->input('saveUrl');
             $saveData = $request->input('saveData');
 
-            // dd($changes,$saveUrl, $saveData );
+            // dd($request);
 
             // Process the changes to replace $Author with session authID
             $processedChanges = collect($changes)->map(function ($value, $key) {
@@ -316,18 +317,21 @@ public function getCandidatePage(Request $request, $name, $call)
         $call = $request->query('call');
         $url = $request->query('url');
         $query = $request->query('query');
+        $ret = $request->query('ret');
         
         Log::debug('pollData received parameters:', [
             'call' => $call,
             'url' => $url,
             'query' => $query,
+            'ret' => $ret,
             'raw_request' => $request->all()
         ]);
 
         $candidateData = $this->externalAuthService->collectionUserSettings(
             $call,
             $url,
-            $query
+            $query,
+            $ret
         );
 
         // Add debug logging for response data
@@ -367,7 +371,7 @@ public function getCandidatePage(Request $request, $name, $call)
             $candidateData = $this->externalAuthService->collectionUserSettings($viewForm, $url, $query);
             
             // Add debug logging to inspect the structure
-            Log::debug('Raw candidate data:', ['data' => $candidateData]);
+            Log::debug('Butt:on Raw candidate data', ['data' => $candidateData]);
             
             $response = [
                 'data' => array_values($candidateData['data'] ?? []), // Remove one level of nesting

@@ -126,12 +126,17 @@ const Table = ({
                 );
                 console.log("HERE IS THE PROCESSED QUERY: ", vsetts?.query);
                 const processedQuery = vsetts?.query?.replace(/\^/g, ";");
+                const processedReturn = vsetts?.["return-list"]?.replace(
+                    /\^/g,
+                    ";"
+                );
 
                 console.log("Polling request details:", {
                     url: processedUrl,
                     query: processedQuery,
                     viewform: vsetts?.viewform,
                     raw_vsetts: vsetts,
+                    ret: processedReturn,
                 });
 
                 const response = await axios.get(route("candidates.poll"), {
@@ -139,6 +144,7 @@ const Table = ({
                         call: vsetts?.viewform,
                         url: processedUrl,
                         query: processedQuery,
+                        ret: processedReturn,
                     },
                 });
 
@@ -1005,14 +1011,14 @@ const Table = ({
                 )}
 
                 {/* Table Section */}
-                <div className="flex-grow overflow-auto">
+                <div className="flex-grow overflow-auto p-4">
                     <div className="inline-block min-w-full align-middle">
                         <div className="overflow-hidden border-b border-gray-200 shadow sm:rounded-lg">
                             <table
                                 {...getTableProps()}
                                 className="min-w-full divide-y divide-gray-200"
                             >
-                                <thead className="bg-gray-50">
+                                <thead className="bg-[#f8fafc] border-b-2 border-[#213341]">
                                     {headerGroups.map((headerGroup, i) => {
                                         const { key, ...headerGroupProps } =
                                             headerGroup.getHeaderGroupProps();
@@ -1057,7 +1063,7 @@ const Table = ({
                                 </thead>
                                 <tbody
                                     {...getTableBodyProps()}
-                                    className="bg-white divide-y divide-gray-200"
+                                    className="bg-white"
                                 >
                                     {page.map((row, i) => {
                                         prepareRow(row);
@@ -1073,7 +1079,7 @@ const Table = ({
                                                 }
                                                 className={`${
                                                     !disableRowClick
-                                                        ? "cursor-pointer hover:bg-gray-50"
+                                                        ? "even:bg-gray-100 hover:bg-gray-200 cursor-pointer"
                                                         : ""
                                                 }`}
                                             >
@@ -1096,7 +1102,7 @@ const Table = ({
                                                                     }
                                                                 );
                                                             }}
-                                                            className={`px-2 py-2 whitespace-nowrap ${
+                                                            className={`px-4 py-3 whitespace-nowrap border-r border-gray-200 ${
                                                                 disableRowClick
                                                                     ? "cursor-pointer hover:bg-gray-100"
                                                                     : ""
