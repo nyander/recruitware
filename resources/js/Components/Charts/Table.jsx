@@ -9,95 +9,159 @@ import { PopupContext } from "../PopupContext";
 import CellRenderer from "./CellRenderer";
 import ButtonPopup from "../CandidateButtonPopup";
 import { router } from "@inertiajs/react";
-import { Search, Filter, ChevronDown, X } from "lucide-react";
+import {
+    Search,
+    Filter,
+    ChevronDown,
+    X,
+    Calendar, // Add this import
+} from "lucide-react";
 import axios from "axios";
 
-// Add after the MultiSelectDropdown component, before the Table component
+const CalendarFilter = ({
+    title,
+    onDateSelect,
+    selectedDate,
+    isSubmitting,
+}) => {
+    const handleDateChange = async (event) => {
+        const date = event.target.value;
+        if (date) {
+            await onDateSelect(date);
+        }
+    };
+
+    const handleKeyPress = async (event) => {
+        if (event.key === "Enter") {
+            const date = event.target.value;
+            if (date) {
+                await onDateSelect(date);
+            }
+        }
+    };
+
+    return (
+        <div className="relative inline-block">
+            <input
+                type="date"
+                className="p-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+                onChange={handleDateChange}
+                onKeyPress={handleKeyPress}
+                value={selectedDate || ""}
+                disabled={isSubmitting}
+            />
+        </div>
+    );
+};
+
+const CalendarSection = ({
+    calendarButtons,
+    handleCalendarChange,
+    selectedDates,
+    isSubmitting,
+}) => {
+    const [openCalendar, setOpenCalendar] = useState(null);
+
+    if (!calendarButtons || calendarButtons.length === 0) return null;
+
+    return (
+        <div className="flex flex-wrap gap-4">
+            {calendarButtons.map((button) => (
+                <div key={button.name} className="flex-1 min-w-[200px]">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {button.name}
+                    </label>
+                    <CalendarFilter
+                        title={button.name}
+                        onDateSelect={(date) =>
+                            handleCalendarChange(button, date)
+                        }
+                        isOpen={openCalendar === button.name}
+                        onToggle={() =>
+                            setOpenCalendar(
+                                openCalendar === button.name
+                                    ? null
+                                    : button.name
+                            )
+                        }
+                        selectedDate={selectedDates[button.name]}
+                        isSubmitting={isSubmitting}
+                    />
+                </div>
+            ))}
+        </div>
+    );
+};
+
 const FilterSection = ({
     crucialFilters,
     parsedButtons,
     filterValues,
     handleFilterChange,
     handleDropdownChange,
+    handleCalendarChange,
     dependentColumnValues,
     isSubmitting,
     structuredFormFields,
     parsedPopups,
     resolveLookupOptions,
+    selectedDates,
 }) => {
-    // Filter out dropdown-type buttons
     const dropdownButtons = parsedButtons.filter(
         (button) => button.type?.toLowerCase() === "dropdown"
     );
 
-    const renderDropdown = (button) => {
-        const popupConfig = parsedPopups[button.popupId];
-        const field = popupConfig?.fields?.[0];
-        const fieldInfo = structuredFormFields[field];
-        const options = resolveLookupOptions(
-            field,
-            fieldInfo,
-            structuredFormFields
-        );
-
-        return (
-            <div key={button.name} className="flex-1 min-w-[200px]">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {button.name}
-                </label>
-                <select
-                    className="w-full border rounded-md p-2 pr-8 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    onChange={(e) =>
-                        handleDropdownChange(button, e.target.value)
-                    }
-                    disabled={isSubmitting}
-                    defaultValue=""
-                >
-                    <option value="">{`Select ${button.name}`}</option>
-                    {options.map((option, index) => (
-                        <option
-                            key={index}
-                            value={option.value || option.label}
-                        >
-                            {option.label}
-                        </option>
-                    ))}
-                </select>
-            </div>
-        );
-    };
+    const calendarButtons = parsedButtons.filter(
+        (button) => button.type?.toLowerCase() === "calendar"
+    );
 
     return (
-        <div className="flex flex-wrap gap-4 mt-4">
-            {/* Render crucial filters */}
-            {crucialFilters.map((filterName) => {
-                const availableOptions =
-                    dependentColumnValues[filterName] || [];
-                const selectedValues = filterValues[filterName] || [];
-
-                return (
-                    <div key={filterName} className="flex-1 min-w-[200px]">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            {filterName}
-                            <span className="text-xs text-gray-500 ml-2">
-                                ({availableOptions.length} available)
-                            </span>
-                        </label>
-                        <MultiSelectDropdown
-                            options={availableOptions}
-                            value={selectedValues}
-                            onChange={(values) =>
-                                handleFilterChange(filterName, values)
+        <div className="flex items-center gap-4">
+            {/* Dropdown Buttons */}
+            {dropdownButtons.length > 0 &&
+                dropdownButtons.map((button) => (
+                    <div key={button.name} className="flex-none">
+                        <select
+                            className="w-64 border rounded-md p-2 pr-8 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            onChange={(e) =>
+                                handleDropdownChange(button, e.target.value)
                             }
-                            placeholder={`Select ${filterName}`}
-                            unavailableSelections={[]}
+                            disabled={isSubmitting}
+                            defaultValue=""
+                        >
+                            <option value="">{`Select ${button.name}`}</option>
+                            {resolveLookupOptions(
+                                parsedPopups[button.popupId]?.fields?.[0],
+                                structuredFormFields[
+                                    parsedPopups[button.popupId]?.fields?.[0]
+                                ],
+                                structuredFormFields
+                            ).map((option, index) => (
+                                <option
+                                    key={index}
+                                    value={option.value || option.label}
+                                >
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                ))}
+
+            {/* Calendar Buttons */}
+            {calendarButtons.length > 0 &&
+                calendarButtons.map((button) => (
+                    <div key={button.name} className="flex-none">
+                        <CalendarFilter
+                            title={button.name}
+                            onDateSelect={(date) =>
+                                handleCalendarChange(button, date)
+                            }
+                            selectedDate={selectedDates[button.name]}
+                            isSubmitting={isSubmitting}
                         />
                     </div>
-                );
-            })}
-
-            {/* Render dropdown-type buttons */}
-            {dropdownButtons.map((button) => renderDropdown(button))}
+                ))}
         </div>
     );
 };
@@ -262,6 +326,7 @@ const Table = ({
     const [tableData, setTableData] = useState(rawData);
     const [currentData, setCurrentData] = useState(rawData);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const [selectedDates, setSelectedDates] = useState({});
 
     useEffect(() => {
         console.log("Hello world:", vsetts?.url, vsetts?.query);
@@ -345,6 +410,68 @@ const Table = ({
 
     const togglePolling = () => {
         setPollingEnabled((prev) => !prev);
+    };
+
+    const handleCalendarChange = async (button, date) => {
+        try {
+            setIsSubmitting(true);
+
+            // Get the popup configuration for this button
+            const popupConfig = parsedPopups[button.popupId];
+            if (!popupConfig) {
+                console.error(
+                    "No popup configuration found for button:",
+                    button
+                );
+                return;
+            }
+
+            // Find the submit/update button in the popup configuration
+            const submitButton = popupConfig.buttons.find(
+                (btn) =>
+                    btn.updates ||
+                    btn.name.toLowerCase() === "submit" ||
+                    btn.name.toLowerCase() === "update"
+            );
+
+            if (!submitButton) {
+                console.error("No submit button found in popup configuration");
+                return;
+            }
+
+            // Update selected dates state
+            setSelectedDates((prev) => ({
+                ...prev,
+                [button.name]: date,
+            }));
+
+            // Create updates object for submission
+            const updates = {
+                ...submitButton.updates,
+                datelookup: date,
+            };
+
+            // Log the submission data
+            console.log("Submitting calendar change:", {
+                changes: updates,
+                saveUrl: button.saveUrl || formSettings?.saveURL || "",
+                saveData: button.saveData || formSettings?.saveData || "",
+            });
+
+            // Submit the changes
+            await router.post(route("candidates.store"), {
+                changes: updates,
+                saveUrl: button.saveUrl || formSettings?.saveURL || "",
+                saveData: button.saveData || formSettings?.saveData || "",
+            });
+
+            // Optionally refresh the data
+            await pollForUpdates();
+        } catch (error) {
+            console.error("Error handling calendar change:", error);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     // Parse crucial filters from vsetts on mount
@@ -593,8 +720,8 @@ const Table = ({
                 valueString,
                 saveUrl,
                 saveData,
-                type = "button", // Default to button if not specified
-                style = "", // Default to empty style
+                type = "button",
+                style = "",
             ] = buttonStr.split(";");
             return {
                 name,
@@ -604,7 +731,7 @@ const Table = ({
                 values: valueString ? valueString.split("~") : [],
                 saveUrl: saveUrl || "",
                 saveData: saveData || "",
-                type: type || "button",
+                type: type?.toLowerCase() || "button",
                 style: style || "",
             };
         });
@@ -1288,11 +1415,13 @@ const Table = ({
                             filterValues={filterValues}
                             handleFilterChange={handleFilterChange}
                             handleDropdownChange={handleDropdownChange}
+                            handleCalendarChange={handleCalendarChange}
                             dependentColumnValues={dependentColumnValues}
                             isSubmitting={isSubmitting}
                             structuredFormFields={structuredFormFields}
                             parsedPopups={parsedPopups}
                             resolveLookupOptions={resolveLookupOptions}
+                            selectedDates={selectedDates}
                         />
 
                         {/* Advanced Search Panel */}
