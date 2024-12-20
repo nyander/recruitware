@@ -94,7 +94,7 @@ const CandidateForm = ({
                             {section.label || ""}
                         </h3>
                         <div
-                            className={`grid grid-cols-${
+                            className={`grid grid-cols-1 md:grid-cols-${
                                 section.columns || 1
                             } gap-4`}
                         >

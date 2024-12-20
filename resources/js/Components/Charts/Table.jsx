@@ -12,7 +12,150 @@ import { router } from "@inertiajs/react";
 import { Search, Filter, ChevronDown, X } from "lucide-react";
 import axios from "axios";
 
-// Update the MultiSelectDropdown component to handle disabled state
+// Add after the MultiSelectDropdown component, before the Table component
+const FilterSection = ({
+    crucialFilters,
+    parsedButtons,
+    filterValues,
+    handleFilterChange,
+    handleDropdownChange,
+    dependentColumnValues,
+    isSubmitting,
+    structuredFormFields,
+    parsedPopups,
+    resolveLookupOptions,
+}) => {
+    // Filter out dropdown-type buttons
+    const dropdownButtons = parsedButtons.filter(
+        (button) => button.type?.toLowerCase() === "dropdown"
+    );
+
+    const renderDropdown = (button) => {
+        const popupConfig = parsedPopups[button.popupId];
+        const field = popupConfig?.fields?.[0];
+        const fieldInfo = structuredFormFields[field];
+        const options = resolveLookupOptions(
+            field,
+            fieldInfo,
+            structuredFormFields
+        );
+
+        return (
+            <div key={button.name} className="flex-1 min-w-[200px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {button.name}
+                </label>
+                <select
+                    className="w-full border rounded-md p-2 pr-8 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    onChange={(e) =>
+                        handleDropdownChange(button, e.target.value)
+                    }
+                    disabled={isSubmitting}
+                    defaultValue=""
+                >
+                    <option value="">{`Select ${button.name}`}</option>
+                    {options.map((option, index) => (
+                        <option
+                            key={index}
+                            value={option.value || option.label}
+                        >
+                            {option.label}
+                        </option>
+                    ))}
+                </select>
+            </div>
+        );
+    };
+
+    return (
+        <div className="flex flex-wrap gap-4 mt-4">
+            {/* Render crucial filters */}
+            {crucialFilters.map((filterName) => {
+                const availableOptions =
+                    dependentColumnValues[filterName] || [];
+                const selectedValues = filterValues[filterName] || [];
+
+                return (
+                    <div key={filterName} className="flex-1 min-w-[200px]">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {filterName}
+                            <span className="text-xs text-gray-500 ml-2">
+                                ({availableOptions.length} available)
+                            </span>
+                        </label>
+                        <MultiSelectDropdown
+                            options={availableOptions}
+                            value={selectedValues}
+                            onChange={(values) =>
+                                handleFilterChange(filterName, values)
+                            }
+                            placeholder={`Select ${filterName}`}
+                            unavailableSelections={[]}
+                        />
+                    </div>
+                );
+            })}
+
+            {/* Render dropdown-type buttons */}
+            {dropdownButtons.map((button) => renderDropdown(button))}
+        </div>
+    );
+};
+
+const ButtonSection = ({
+    parsedButtons,
+    setActivePopup,
+    parsedPopups,
+    selectedCellData,
+    isSubmitting,
+}) => {
+    // Filter out non-dropdown buttons
+    const regularButtons = parsedButtons.filter(
+        (button) => button.type?.toLowerCase() !== "dropdown"
+    );
+
+    if (regularButtons.length === 0) return null;
+
+    return (
+        <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
+            <div className="flex gap-2 justify-end">
+                {regularButtons.map((button, index) => (
+                    <button
+                        key={index}
+                        type="button"
+                        onClick={() => {
+                            const popupConfig = parsedPopups[button.popupId];
+                            if (popupConfig) {
+                                const mergedPopup = {
+                                    ...popupConfig,
+                                    initialData:
+                                        selectedCellData[0]?.popupParams
+                                            ?.initialData || {},
+                                    saveUrl:
+                                        button.saveUrl ||
+                                        popupConfig.saveUrl ||
+                                        "",
+                                    saveData:
+                                        button.saveData ||
+                                        popupConfig.saveData ||
+                                        "",
+                                };
+                                setActivePopup(mergedPopup);
+                            }
+                        }}
+                        disabled={isSubmitting}
+                        className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+                            button.style || ""
+                        }`}
+                    >
+                        {button.name}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 const MultiSelectDropdown = ({
     options,
     value = [],
@@ -1139,7 +1282,18 @@ const Table = ({
                             )}
                         </div>
 
-                        {renderCrucialFilters()}
+                        <FilterSection
+                            crucialFilters={crucialFilters}
+                            parsedButtons={parsedButtons}
+                            filterValues={filterValues}
+                            handleFilterChange={handleFilterChange}
+                            handleDropdownChange={handleDropdownChange}
+                            dependentColumnValues={dependentColumnValues}
+                            isSubmitting={isSubmitting}
+                            structuredFormFields={structuredFormFields}
+                            parsedPopups={parsedPopups}
+                            resolveLookupOptions={resolveLookupOptions}
+                        />
 
                         {/* Advanced Search Panel */}
                         {showAdvancedSearch && (
@@ -1187,16 +1341,13 @@ const Table = ({
                     </div>
                 </div>
 
-                {/* Buttons Section */}
-                {parsedButtons.length > 0 && (
-                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                        <div className="flex gap-2 justify-end">
-                            {parsedButtons.map((button, index) => (
-                                <div key={index}>{renderButton(button)}</div>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                <ButtonSection
+                    parsedButtons={parsedButtons}
+                    setActivePopup={setActivePopup}
+                    parsedPopups={parsedPopups}
+                    selectedCellData={selectedCellData}
+                    isSubmitting={isSubmitting}
+                />
 
                 {/* Table Section */}
                 <div className="flex-grow overflow-auto p-4">

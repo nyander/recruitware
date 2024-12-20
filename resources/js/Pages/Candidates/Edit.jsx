@@ -357,7 +357,7 @@ const Edit = ({ auth, formSettings, formFields = {}, errors, menu }) => {
         if (!parsedButtons.length) return null;
 
         return (
-            <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
+            <div className="px-4 py-3  border-t border-gray-200">
                 <div className="flex gap-2 justify-end">
                     {parsedButtons
                         .filter((button) => button.visible)

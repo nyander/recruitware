@@ -44,7 +44,7 @@ const Index = ({
             header={
                 <div>
                     <h2 className="font-semibold text-xl text-gray-800 leading-tight">
-                        {status}
+                        {vsetts.pagetitle}
                     </h2>
                     <div className="h-[3px] w-10 bg-orange-500 mt-2"></div>
                 </div>

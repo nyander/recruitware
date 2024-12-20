@@ -22,49 +22,7 @@ class CandidateController extends Controller
         $this->externalAuthService = $externalAuthService;
     }
 
-    private function getColumns($status)
-{
-    $commonColumns = [
-        ['Header' => 'Name', 'accessor' => 'full_name'], // Change this line
-        ['Header' => 'Email', 'accessor' => 'email'],
-        ['Header' => 'Location', 'accessor' => 'location'],
-    ];
 
-    $statusSpecificColumns = [
-        'live' => [
-            ['Header' => 'Classification', 'accessor' => 'classification'],
-            ['Header' => 'Shift Pattern', 'accessor' => 'shift_pattern'],
-            ['Header' => 'Available From', 'accessor' => 'avail_window'],
-        ],
-        'new' => [
-            ['Header' => 'Age', 'accessor' => 'age'],
-            ['Header' => 'Phone', 'accessor' => 'phone'],
-            ['Header' => 'Reference', 'accessor' => 'ref'],
-        ],
-        'audit' => [
-            ['Header' => 'Classification', 'accessor' => 'classification'],
-            ['Header' => 'Assessed Pack', 'accessor' => 'assessed_pack'],
-        ],
-        'pending' => [
-            ['Header' => 'Classification', 'accessor' => 'classification'],
-            ['Header' => 'Shift Pattern', 'accessor' => 'shift_pattern'],
-        ],
-        'leaver' => [
-            ['Header' => 'Classification', 'accessor' => 'classification'],
-            ['Header' => 'Last Working Day', 'accessor' => 'avail_window'],
-        ],
-        'archived' => [
-            ['Header' => 'Classification', 'accessor' => 'classification'],
-            ['Header' => 'Reference', 'accessor' => 'ref'],
-        ],
-        'no_contact' => [
-            ['Header' => 'Last Contact Attempt', 'accessor' => 'updated_at'],
-            ['Header' => 'Phone', 'accessor' => 'phone'],
-        ],
-    ];
-
-    return array_merge($commonColumns, $statusSpecificColumns[$status] ?? []);
-}
 
 public function renderCandidateView($status,$viewform, $viewName, $candidateData, $structuredFormFields, $disableRowClick)
 {
@@ -73,6 +31,7 @@ public function renderCandidateView($status,$viewform, $viewName, $candidateData
     $menu = $this->externalAuthService->getMenuData();
 
     // Get session data
+    // dd($candidateData);
     $authID = session('authID');
     $userName = session('userName');
     $userData = session('userData');
@@ -149,7 +108,7 @@ public function getCandidatePage(Request $request, $name, $call)
         $formFields = $this->externalAuthService->collectionFormSettings($getUserSettingsString)['sets'] ?? [];
         $structuredFormFields = $this->externalAuthService->structureFormFields($formFields);
 
-        // dd($formFields, $structuredFormFields);
+        // dd($candidateData, $structuredFormFields);
         // Log prepared data
         Log::debug('Prepared data for view:', [
             'viewForm' => $viewForm,
@@ -218,6 +177,11 @@ public function getCandidatePage(Request $request, $name, $call)
                 }
                 return $value;
             })->all();
+
+            Log::debug('processedChanges', [
+                'changes' => $changes,
+                'processedChanges' => $processedChanges
+            ]);
 
             $formattedChanges = $this->formatChangesForUrl($processedChanges);
             $saveDataChanges = $this->appendChangesToUrl($saveData, $formattedChanges);
