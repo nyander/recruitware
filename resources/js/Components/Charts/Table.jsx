@@ -797,112 +797,37 @@ const Table = ({
         const cell = cellInfo.cell;
         let cellValue = cell.value || "";
 
-        // Decode URL-encoded characters if present
-        if (typeof cellValue === "string") {
-            cellValue = cellValue.replace(/%7E/g, "~");
+        // Decode URL-encoded characters
+        cellValue = decodeURIComponent(cellValue);
 
-            // Extract runPopButton parameters
-            const runPopButtonMatch = cellValue.match(
-                /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\s*(?:,\s*'([^']+)')?\s*(?:,\s*'([^']+)')?\)/
-            );
+        const runPopButtonMatch = cellValue.match(
+            /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\s*(?:,\s*'([^']+)')?\s*(?:,\s*'([^']+)')?\)/
+        );
 
-            if (runPopButtonMatch) {
-                const [
-                    _,
-                    popupId,
-                    fieldsString,
-                    valuesString,
-                    saveUrl,
-                    saveData,
-                ] = runPopButtonMatch;
+        if (runPopButtonMatch) {
+            const [_, popupId, fieldsString, valuesString, saveUrl, saveData] =
+                runPopButtonMatch;
 
-                console.log("Popup Parameters:", {
-                    popupId,
-                    fieldsString,
-                    valuesString,
-                    saveUrl,
-                    saveData,
+            const fields = fieldsString.split("~");
+            const values = valuesString.split("~");
+            const initialData = {};
+
+            fields.forEach((field, index) => {
+                initialData[field] = values[index] || "";
+            });
+
+            const popupConfig = parsedPopups[popupId];
+            if (popupConfig) {
+                setActivePopup({
+                    ...popupConfig,
+                    initialData,
+                    saveUrl: saveUrl || formSettings?.saveURL || "",
+                    saveData: saveData || formSettings?.saveData || "",
                 });
-
-                // Split fields and values
-                const fields = fieldsString.split("~");
-                const values = valuesString.split("~");
-
-                // Create initial data object
-                const initialData = {};
-                fields.forEach((field, index) => {
-                    let value = values[index] || "";
-                    const fieldInfo = structuredFormFields?.[field];
-                    const fieldType = fieldInfo?.type?.toLowerCase();
-
-                    switch (fieldType) {
-                        case "select":
-                            const options = resolveLookupOptions(
-                                field,
-                                fieldInfo,
-                                structuredFormFields
-                            );
-                            const matchingOption = options.find(
-                                (opt) => opt.value === value
-                            );
-                            initialData[field] = matchingOption
-                                ? matchingOption.value
-                                : value;
-                            break;
-
-                        case "checkbox":
-                            initialData[field] = value
-                                ? value.split(";").filter(Boolean)
-                                : [];
-                            break;
-
-                        default:
-                            initialData[field] = value;
-                    }
-                });
-
-                // Get popup configuration
-                const popupConfig = parsedPopups[popupId];
-                if (popupConfig) {
-                    console.log(
-                        "Found popup config for:",
-                        popupId,
-                        popupConfig
-                    );
-
-                    const mergedPopup = {
-                        ...popupConfig,
-                        initialData,
-                        saveUrl: saveUrl || formSettings?.saveURL || "",
-                        saveData: saveData
-                            ? saveData.replace(/\$/g, "|")
-                            : formSettings?.saveData || "",
-                    };
-
-                    setActivePopup(mergedPopup);
-
-                    const cellKey = `${cellInfo.row.id}-${cellInfo.column.id}`;
-                    setSelectedCells(singleSelectMode ? [cellKey] : [cellKey]);
-                    setSelectedCellData([
-                        {
-                            cellKey,
-                            popupParams: {
-                                popupId,
-                                fields,
-                                values,
-                                initialData,
-                                saveUrl,
-                                saveData,
-                            },
-                            content: cellValue,
-                            originalCell: cell,
-                        },
-                    ]);
-                } else {
-                    console.error(
-                        `Popup configuration not found for ID: ${popupId}`
-                    );
-                }
+            } else {
+                console.error(
+                    `Popup configuration not found for ID: ${popupId}`
+                );
             }
         }
     };
@@ -1561,7 +1486,7 @@ const Table = ({
                                                             key={key}
                                                             {...cellProps}
                                                             onClick={(e) => {
-                                                                e.stopPrfopagation();
+                                                                e.stopPropagation();
                                                                 handleCellClick(
                                                                     {
                                                                         cell: cell,
@@ -1573,12 +1498,6 @@ const Table = ({
                                                             className={`px-4 py-3 whitespace-nowrap border-r border-gray-200 ${
                                                                 disableRowClick
                                                                     ? "cursor-pointer hover:bg-gray-100"
-                                                                    : ""
-                                                            } ${
-                                                                selectedCells.includes(
-                                                                    `${row.id}-${cell.column.id}`
-                                                                )
-                                                                    ? "bg-blue-100"
                                                                     : ""
                                                             }`}
                                                         >
