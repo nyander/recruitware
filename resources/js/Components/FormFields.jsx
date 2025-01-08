@@ -16,14 +16,9 @@ export const FormFields = {
                 value={value || ""}
                 onChange={(e) => onChange(field, e.target.value)}
                 disabled={isDisabled}
-                size={isLongList ? 4 : undefined}
                 className={`shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md ${
                     isDisabled ? "bg-gray-50 cursor-not-allowed opacity-75" : ""
                 }`}
-                style={{
-                    maxHeight: isLongList ? MAX_SCROLL_HEIGHT : "auto",
-                    overflowY: isLongList ? "auto" : "visible",
-                }}
             >
                 <option value="">Select {fieldInfo.label}</option>
                 {options.map((option, index) => (
