@@ -46,7 +46,7 @@ class ExternalGuard implements Guard
             return $this->createUserFromSession(Session::get('userData'));
         }
 
-        dd("hello world");
+        // dd("hello world");
 
         //if session has timed out:
         // if (Session::has('userData') && Session::has('last_activity')) {
@@ -161,7 +161,7 @@ class ExternalGuard implements Guard
 
     public function attempt(array $credentials = [])
     {
-        dd("hello world");
+        // dd("hello world");
         if ($this->validate($credentials)) {
             // Authentication successful, redirect to candidates/live
             return Redirect::to(route('candidates.live'));

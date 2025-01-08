@@ -329,7 +329,6 @@ const Table = ({
     const [selectedDates, setSelectedDates] = useState({});
 
     useEffect(() => {
-        console.log("Hello world:", vsetts?.url, vsetts?.query);
         const pollForUpdates = async () => {
             try {
                 const processedUrl = vsetts?.url?.replace(

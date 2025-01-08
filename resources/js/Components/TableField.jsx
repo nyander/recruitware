@@ -98,20 +98,6 @@ const TableField = ({ field, fieldInfo }) => {
         saveData: settings.SaveData || "",
     };
 
-    // Log final props being passed to Table component
-    console.log("Table Component Props:", {
-        columns,
-        data: tableData.data || [],
-        viewForm: settings.viewform,
-        buttons: tableData.buttons,
-        popups: tableData.popups,
-        structuredFormFields: tableData.structuredFormFields,
-        formSettings,
-        disableRowClick: true,
-        vsetts,
-        updateInterval: 30000,
-    });
-
     // Log processed settings and transformations
     console.log("Processed Settings:", {
         originalSettings: settings,
@@ -131,7 +117,7 @@ const TableField = ({ field, fieldInfo }) => {
                 popups={tableData.popups}
                 structuredFormFields={tableData.structuredFormFields}
                 formSettings={formSettings}
-                disableRowClick={false}
+                disableRowClick={settings.disableRowClick}
                 vsetts={vsetts}
                 updateInterval={30000}
             />
