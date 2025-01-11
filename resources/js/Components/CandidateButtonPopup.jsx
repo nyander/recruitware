@@ -99,7 +99,7 @@ const CandidateButtonPopup = ({
     }, [popup?.id, popup?.initialData, formFields]);
 
     const handleFieldChange = (field, value) => {
-        console.log("Field Change Event:", { field, value });
+        // console.log("Field Change Event:", { field, value });
 
         const fieldInfo = formFields[field];
         const isAttachment = fieldInfo?.type?.toLowerCase() === "attach";
@@ -125,11 +125,11 @@ const CandidateButtonPopup = ({
         }));
     };
 
-    useEffect(() => {
-        console.log("Popup Open:", isOpen);
-        console.log("Popup Config:", popup);
-        console.log("Form Data on Open:", formData);
-    }, [isOpen, popup, formData]);
+    // useEffect(() => {
+    //     console.log("Popup Open:", isOpen);
+    //     console.log("Popup Config:", popup);
+    //     console.log("Form Data on Open:", formData);
+    // }, [isOpen, popup, formData]);
 
     const renderField = (field) => {
         const fieldInfo = formFields[field];

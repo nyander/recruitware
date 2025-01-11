@@ -164,6 +164,19 @@ const Table = ({
         ({ cell, row }) => {
             if (disableRowClick) {
                 const cellValue = cell.value?.toString() || "";
+
+                // Check for toggleSelect pattern
+                const toggleSelectMatch = cellValue.match(
+                    /toggleSelect\('([^']+)'\)/
+                );
+                if (toggleSelectMatch) {
+                    console.log("picking up toggleSelect", {
+                        value: toggleSelectMatch[1], // This will capture the ID passed to toggleSelect
+                    });
+                    return; // Exit early after handling toggleSelect
+                }
+
+                // Existing runPopButton logic
                 const runPopButtonMatch = cellValue.match(
                     /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\s*(?:,\s*'([^']+)')?\s*(?:,\s*'([^']+)')?\)/
                 );

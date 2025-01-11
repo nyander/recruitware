@@ -1,5 +1,5 @@
 import { usePage } from "@inertiajs/react";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 const AttachmentField = ({
     field = "",
@@ -17,51 +17,58 @@ const AttachmentField = ({
     const { fldr } = usePage().props;
     const [isIframeLoading, setIsIframeLoading] = useState(true);
 
-    useEffect(() => {
-        const handleFileUploaded = (event) => {
-            if (event.data?.type === "fileUploaded") {
-                if (event.data.field === field) {
-                    const rawFileLocation = event.data.fileLocation;
-                    if (rawFileLocation) {
-                        const encodedFileLocation = rawFileLocation.replace(
-                            /\s+/g,
-                            "%20"
-                        );
+    // Handle file upload message event
+    const handleFileUploaded = useCallback(
+        (event) => {
+            if (
+                event.data?.type === "fileUploaded" &&
+                event.data.field === field
+            ) {
+                const rawFileLocation = event.data.fileLocation;
+                if (rawFileLocation) {
+                    const encodedFileLocation = rawFileLocation.replace(
+                        /\s+/g,
+                        "%20"
+                    );
+                    setFilename(rawFileLocation);
+                    setFileLocation(encodedFileLocation);
+                    handleInputChange(field, encodedFileLocation);
+                    setUploadStatus("File uploaded successfully");
 
-                        setFilename(rawFileLocation);
-                        handleInputChange(field, encodedFileLocation);
-                        setUploadStatus("File uploaded successfully");
-
-                        const matches = rawFileLocation.match(/\/([^\/]+)_/);
-                        if (matches && matches[1]) {
-                            setFileId(matches[1]);
-                            setFileLocation(encodedFileLocation);
-                        }
+                    const matches = rawFileLocation.match(/\/([^\/]+)_/);
+                    if (matches && matches[1]) {
+                        setFileId(matches[1]);
                     }
                 }
             }
-        };
+        },
+        [field, handleInputChange]
+    );
 
+    // Set up event listener for file upload messages
+    useEffect(() => {
         window.addEventListener("message", handleFileUploaded);
-
-        if (value) {
-            const encodedValue = value.replace(/\s+/g, "%20");
-            setFilename(value);
-            setFileLocation(encodedValue);
-            handleInputChange(field, encodedValue);
-        }
 
         return () => {
             window.removeEventListener("message", handleFileUploaded);
         };
-    }, [field, handleInputChange, value]);
+    }, [handleFileUploaded]);
+
+    // Initialize with existing value
+    useEffect(() => {
+        if (value) {
+            const encodedValue = value.replace(/\s+/g, "%20");
+            setFilename(value);
+            setFileLocation(encodedValue);
+        }
+    }, [value]);
 
     const handleClear = () => {
         setFilename("");
         setFileId("");
+        setFileLocation("");
         handleInputChange(field, "");
         setUploadStatus("");
-
         setIframeKey(`iframe_${field}_${Date.now()}`);
 
         if (iframeRef.current) {
