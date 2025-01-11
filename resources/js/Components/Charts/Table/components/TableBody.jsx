@@ -1,5 +1,5 @@
 import React from "react";
-import CellRenderer from "../../Charts/CellRenderer";
+import CellRenderer from "../../CellRenderer";
 
 const TableBody = ({
     tableData,

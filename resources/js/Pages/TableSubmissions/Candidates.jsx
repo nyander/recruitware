@@ -3,7 +3,7 @@ import { Head } from "@inertiajs/react";
 import { usePage } from "@inertiajs/react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import CandidateFormModal from "../Components/CandidateFormModal";
-import Table from "@/Components/Charts/Table";
+import Table from "@/Components/Charts/Table/Index.jsx";
 
 const Candidates = ({ auth, candidates, status, columns }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);

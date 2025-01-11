@@ -5,14 +5,14 @@ import {
     usePagination,
     useGlobalFilter,
 } from "react-table";
-import { PopupContext } from "../PopupContext";
+import { PopupContext } from "../../PopupContext";
 import { resolveLookupOptions } from "./utils/tableHelpers";
 import TableHeader from "./components/TableHeader";
 import FilterSection from "./components/FilterSection";
 import TableBody from "./components/TableBody";
 import TableActions from "./components/TableActions";
 import Pagination from "./components/Pagination";
-import CandidateButtonPopup from "../CandidateButtonPopup";
+import CandidateButtonPopup from "../../CandidateButtonPopup";
 import { router } from "@inertiajs/react";
 import axios from "axios";
 

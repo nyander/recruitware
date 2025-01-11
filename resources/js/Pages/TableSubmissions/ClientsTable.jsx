@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import Table from "@/Components/Charts/Table";
+import React, { useMemo, useState, useCallback } from "react";
+import Table from "@/Components/Charts/Table/Index.jsx";
 
 const ClientTable = ({ clients }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,11 +35,7 @@ const ClientTable = ({ clients }) => {
     );
 
     return (
-        <Table
-            columns={columns}
-            data={candidates}
-            onRowClick={handleRowClick}
-        />
+        <Table columns={columns} data={clients} onRowClick={handleRowClick} />
     );
 };
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import Table from "@/Components/Charts/Table";
+import Table from "@/Components/Charts/Table/Index.jsx";
 import axios from "axios";
 
 const TableField = ({ field, fieldInfo }) => {

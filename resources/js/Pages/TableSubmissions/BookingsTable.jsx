@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import Table from "@/Components/Charts/Table";
+import Table from "@/Components/Charts/Table/Index.jsx";
 
 const BookingTable = ({ bookings }) => {
     const handleRowClick = useCallback((candidate) => {
@@ -48,11 +48,7 @@ const BookingTable = ({ bookings }) => {
     );
 
     return (
-        <Table
-            columns={columns}
-            data={candidates}
-            onRowClick={handleRowClick}
-        />
+        <Table columns={columns} data={bookings} onRowClick={handleRowClick} />
     );
 };
 
