@@ -28,12 +28,6 @@ const AttachmentField = ({
                             "%20"
                         );
 
-                        console.log("File uploaded:", {
-                            field,
-                            rawFileLocation,
-                            encodedFileLocation,
-                        });
-
                         setFilename(rawFileLocation);
                         handleInputChange(field, encodedFileLocation);
                         setUploadStatus("File uploaded successfully");

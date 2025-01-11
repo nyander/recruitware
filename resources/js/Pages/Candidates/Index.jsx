@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head } from "@inertiajs/react";
-import Table from "@/Components/Charts/Table";
+import Table from "@/Components/Table";
 
 const Index = ({
     auth,
