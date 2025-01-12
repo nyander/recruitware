@@ -254,7 +254,9 @@ const Table = ({
 
             // 2. massCellSelect false & disableRowClick false
             if (!massCellSelect && !disableRowClick) {
-                handleRowClick(cellInfo.row);
+                if (handleRowClick) {
+                    handleRowClick(cellInfo.row);
+                }
                 return;
             }
 
@@ -283,7 +285,7 @@ const Table = ({
         [
             massCellSelect,
             disableRowClick,
-            handleRowClick,
+            handleRowClick, // Include handleRowClick in the dependency array
             parsedPopups,
             formSettings,
             parseCellValue,
@@ -601,6 +603,7 @@ const Table = ({
                     isSubmitting={isSubmitting}
                     isCellSelected={isCellSelected}
                     massCellSelect={massCellSelect}
+                    handleRowClick={handleRowClick}
                 />
 
                 <Pagination

@@ -12,6 +12,7 @@ const TableBody = ({
     isSubmitting,
     isCellSelected,
     massCellSelect,
+    handleRowClick,
 }) => {
     return (
         <div className="overflow-x-auto flex-grow">
