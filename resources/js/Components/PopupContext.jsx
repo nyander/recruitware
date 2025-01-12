@@ -5,4 +5,6 @@ export const PopupContext = createContext({
     formFields: {},
     formSettings: {},
     handlePopupSubmit: () => {},
+    selectedToggleValues: [],
+    massCellSelect: false,
 });

@@ -29,17 +29,19 @@ const Table = ({
     vsetts = {},
     updateInterval = 30000,
 }) => {
-    // State Management
+    // ... other state declarations remain the same ...
     const [activePopup, setActivePopup] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedCells, setSelectedCells] = useState([]);
-    const [selectedCellData, setSelectedCellData] = useState([]);
+    const [selectedCellData, setSelectedCellData] = useState([]); // Add this line
+    const [selectedToggleValues, setSelectedToggleValues] = useState([]); // New state for toggle values
     const [parsedButtons, setParsedButtons] = useState([]);
     const [parsedPopups, setParsedPopups] = useState({});
     const [searchValue, setSearchValue] = useState("");
     const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
     const [showColumnSelector, setShowColumnSelector] = useState(false);
     const [filterValues, setFilterValues] = useState({});
+    const [selectedDates, setSelectedDates] = useState({});
     const [visibleColumns, setVisibleColumns] = useState(() =>
         initialColumns.map((col) =>
             typeof col === "string" ? col : col.Header
@@ -48,11 +50,9 @@ const Table = ({
     const [pollingEnabled, setPollingEnabled] = useState(true);
     const [tableData, setTableData] = useState(rawData);
     const [currentData, setCurrentData] = useState(rawData);
-    const [selectedDates, setSelectedDates] = useState({});
     const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
-    const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const [massCellSelect, setMassCellSelect] = useState(false);
 
-    // Memoized Values
     const columns = useMemo(
         () =>
             initialColumns.map((col) => ({
@@ -64,31 +64,6 @@ const Table = ({
             })),
         [initialColumns]
     );
-
-    // Extract unique column values for filters
-    const uniqueColumnValues = useMemo(() => {
-        const values = {};
-        const processData = Array.isArray(currentData)
-            ? currentData
-            : Object.values(currentData);
-
-        initialColumns.forEach((col) => {
-            const columnId = typeof col === "string" ? col : col.Header;
-            if (!values[columnId]) {
-                const uniqueVals = new Set();
-                processData.forEach((row) => {
-                    let value = row[columnId] || row[columnId?.toLowerCase()];
-                    if (value !== undefined && value !== null && value !== "") {
-                        value = value.toString().replace(/<[^>]*>/g, "");
-                        uniqueVals.add(value);
-                    }
-                });
-                values[columnId] = Array.from(uniqueVals).sort();
-            }
-        });
-
-        return values;
-    }, [currentData, initialColumns]);
 
     // Calculate dependent column values
     const dependentColumnValues = useMemo(() => {
@@ -126,7 +101,55 @@ const Table = ({
         return availableOptions;
     }, [currentData, filterValues]);
 
-    // Table Instance
+    const parseCellValue = useCallback((value) => {
+        if (!value || typeof value !== "string") return null;
+
+        const toggleSelectMatch = value.match(/toggleSelect\('([^']+)'\)/);
+        if (toggleSelectMatch) {
+            return {
+                type: "toggleSelect",
+                value: toggleSelectMatch[1],
+            };
+        }
+
+        const runPopButtonMatch = value.match(
+            /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\s*(?:,\s*'([^']+)')?\s*(?:,\s*'([^']+)')?\)/
+        );
+        if (runPopButtonMatch) {
+            return {
+                type: "runPopButton",
+                data: {
+                    popupId: runPopButtonMatch[1],
+                    fieldsString: runPopButtonMatch[2],
+                    valuesString: runPopButtonMatch[3],
+                    saveUrl: runPopButtonMatch[4],
+                    saveData: runPopButtonMatch[5],
+                },
+            };
+        }
+
+        return null;
+    }, []);
+
+    const handleRowClick = useCallback(
+        (row) => {
+            const candidateData = row.original;
+            const id = candidateData.id || candidateData.DocID;
+            router.get(
+                route("candidates.edit", {
+                    viewForm: viewForm,
+                    id: id,
+                }),
+                {
+                    preserveState: true,
+                    preserveScroll: true,
+                }
+            );
+        },
+        [viewForm]
+    );
+
+    // Table instance setup
     const tableInstance = useTable(
         {
             columns,
@@ -159,42 +182,59 @@ const Table = ({
         setGlobalFilter,
     } = tableInstance;
 
-    // Event Handlers
-    const handleCellClick = useCallback(
-        ({ cell, row }) => {
-            if (disableRowClick) {
-                const cellValue = cell.value?.toString() || "";
-
-                // Check for toggleSelect pattern
-                const toggleSelectMatch = cellValue.match(
-                    /toggleSelect\('([^']+)'\)/
-                );
-                if (toggleSelectMatch) {
-                    console.log("picking up toggleSelect", {
-                        value: toggleSelectMatch[1], // This will capture the ID passed to toggleSelect
-                    });
-                    return; // Exit early after handling toggleSelect
+    const findCellByToggleValue = useCallback(
+        (value) => {
+            for (const row of page) {
+                for (const cell of row.cells) {
+                    const parsedCell = parseCellValue(cell.value);
+                    if (
+                        parsedCell?.type === "toggleSelect" &&
+                        parsedCell.value === value
+                    ) {
+                        return { cell, row, column: cell.column };
+                    }
                 }
+            }
+            return null;
+        },
+        [page, parseCellValue]
+    );
 
-                // Existing runPopButton logic
-                const runPopButtonMatch = cellValue.match(
-                    /runPopButton\('([^']+)',\s*'([^']+)',\s*'([^']+)'\s*(?:,\s*'([^']+)')?\s*(?:,\s*'([^']+)')?\)/
-                );
+    const isCellSelected = useCallback(
+        (cellInfo) => {
+            if (!massCellSelect) return false;
+            const cellId = `${cellInfo.row.id}-${cellInfo.column.id}`;
+            return selectedCells.includes(cellId);
+        },
+        [selectedCells, massCellSelect]
+    );
 
-                if (runPopButtonMatch) {
-                    const [
-                        _,
+    const handleCellClick = useCallback(
+        (cellInfo) => {
+            if (!cellInfo?.cell) return;
+
+            const parsedCell = parseCellValue(cellInfo.cell.value);
+            console.log("Cell Click Debug:", {
+                parsedCell,
+                disableRowClick,
+                massCellSelect,
+                cellValue: cellInfo.cell.value,
+            });
+
+            // Handle the four conditions:
+            // 1. massCellSelect false & disableRowClick true
+            if (!massCellSelect && disableRowClick) {
+                if (parsedCell?.type === "runPopButton") {
+                    const {
                         popupId,
                         fieldsString,
                         valuesString,
                         saveUrl,
                         saveData,
-                    ] = runPopButtonMatch;
-
+                    } = parsedCell.data;
                     const fields = fieldsString.split("~");
                     const values = valuesString.split("~");
                     const initialData = {};
-
                     fields.forEach((field, index) => {
                         initialData[field] = values[index] || "";
                     });
@@ -209,30 +249,74 @@ const Table = ({
                         });
                     }
                 }
-            } else {
-                handleRowClick(row);
+                return;
+            }
+
+            // 2. massCellSelect false & disableRowClick false
+            if (!massCellSelect && !disableRowClick) {
+                handleRowClick(cellInfo.row);
+                return;
+            }
+
+            // 3 & 4. massCellSelect true (handle both row and cell selection)
+            if (massCellSelect && parsedCell?.type === "toggleSelect") {
+                const toggleValue = parsedCell.value;
+                console.log("Toggle value found:", toggleValue);
+
+                setSelectedToggleValues((prev) => {
+                    const newValues = prev.includes(toggleValue)
+                        ? prev.filter((v) => v !== toggleValue)
+                        : [...prev, toggleValue];
+                    console.log("Updated selected toggle values:", newValues);
+                    return newValues;
+                });
+
+                // Also update visual selection state
+                setSelectedCells((prev) => {
+                    const cellId = `${cellInfo.row.id}-${cellInfo.column.id}`;
+                    return prev.includes(cellId)
+                        ? prev.filter((id) => id !== cellId)
+                        : [...prev, cellId];
+                });
             }
         },
-        [disableRowClick, parsedPopups, formSettings]
+        [
+            massCellSelect,
+            disableRowClick,
+            handleRowClick,
+            parsedPopups,
+            formSettings,
+            parseCellValue,
+        ]
     );
 
-    const handleRowClick = useCallback(
-        (row) => {
-            const candidateData = row.original;
-            const id = candidateData.id || candidateData.DocID;
-            router.get(
-                route("candidates.edit", {
-                    viewForm: viewForm,
-                    id: id,
-                }),
-                {
-                    preserveState: true,
-                    preserveScroll: true,
-                }
-            );
-        },
-        [viewForm]
-    );
+    const handleSearch = (value) => {
+        setSearchValue(value);
+        setGlobalFilter(value || undefined);
+    };
+
+    const clearAllFilters = () => {
+        setFilterValues({});
+        setSearchValue("");
+        setGlobalFilter(undefined);
+    };
+
+    const handleFilterChange = (columnId, values) => {
+        setFilterValues((prev) => {
+            const newFilters = { ...prev };
+            if (values.length === 0) {
+                delete newFilters[columnId];
+            } else {
+                newFilters[columnId] = values;
+            }
+
+            if (columnId === "Location") {
+                delete newFilters["Job Type"];
+            }
+
+            return newFilters;
+        });
+    };
 
     const handleDropdownChange = async (button, value) => {
         try {
@@ -308,14 +392,21 @@ const Table = ({
     const handlePopupSubmit = async (updates) => {
         try {
             setIsSubmitting(true);
+
+            const submissionData = {
+                ...updates,
+                selectedToggleValues: selectedToggleValues,
+            };
+
             await router.post(route("candidates.store"), {
-                changes: updates,
+                changes: submissionData,
                 saveUrl: activePopup?.saveUrl || formSettings?.saveURL || "",
                 saveData: activePopup?.saveData || formSettings?.saveData || "",
             });
+
             setActivePopup(null);
             setSelectedCells([]);
-            setSelectedCellData([]);
+            setSelectedToggleValues([]);
         } catch (error) {
             console.error("Popup submission error:", error);
         } finally {
@@ -323,35 +414,66 @@ const Table = ({
         }
     };
 
-    const handleFilterChange = (columnId, values) => {
-        setFilterValues((prev) => {
-            const newFilters = { ...prev };
-            if (values.length === 0) {
-                delete newFilters[columnId];
-            } else {
-                newFilters[columnId] = values;
+    // Use memo for popup context value
+    const popupContextValue = useMemo(
+        () => ({
+            setActivePopup,
+            formFields: structuredFormFields,
+            formSettings: {
+                ...popups,
+                saveUrl: formSettings?.saveURL || "",
+                saveData: formSettings?.saveData || "",
+            },
+            handlePopupSubmit,
+            selectedToggleValues,
+            massCellSelect,
+        }),
+        [
+            popups,
+            formSettings,
+            structuredFormFields,
+            selectedToggleValues,
+            massCellSelect,
+        ]
+    );
+
+    // Log selectedToggleValues whenever it changes
+    useEffect(() => {
+        console.log("Selected Toggle Values:", selectedToggleValues);
+    }, [selectedToggleValues]);
+
+    // Setup global toggleSelect function
+    useEffect(() => {
+        window.toggleSelect = (value) => {
+            console.log("Global toggleSelect called with:", value);
+            setSelectedToggleValues((prev) => {
+                const newValues = prev.includes(value)
+                    ? prev.filter((v) => v !== value)
+                    : [...prev, value];
+                console.log(
+                    "Updated selected toggle values (global):",
+                    newValues
+                );
+                return newValues;
+            });
+
+            // Update visual selection state as well
+            const matchingCell = findCellByToggleValue(value);
+            if (matchingCell) {
+                setSelectedCells((prev) => {
+                    const cellId = `${matchingCell.row.id}-${matchingCell.column.id}`;
+                    return prev.includes(cellId)
+                        ? prev.filter((id) => id !== cellId)
+                        : [...prev, cellId];
+                });
             }
+        };
 
-            if (columnId === "Location") {
-                delete newFilters["Job Type"];
-            }
+        return () => {
+            delete window.toggleSelect;
+        };
+    }, []);
 
-            return newFilters;
-        });
-    };
-
-    const handleSearch = (value) => {
-        setSearchValue(value);
-        setGlobalFilter(value || undefined);
-    };
-
-    const clearAllFilters = () => {
-        setFilterValues({});
-        setSearchValue("");
-        setGlobalFilter(undefined);
-    };
-
-    // Effects
     useEffect(() => {
         if (buttons && popups) {
             const parsedBtn = buttons.split("@@").map((buttonStr) => {
@@ -423,118 +545,6 @@ const Table = ({
         }
     }, [buttons, popups]);
 
-    // Data polling effect
-    useEffect(() => {
-        let intervalId;
-
-        const pollForUpdates = async () => {
-            if (!pollingEnabled || !vsetts?.viewform) return;
-
-            try {
-                const processedUrl = vsetts?.url?.replace(
-                    /\[RND\]/g,
-                    Math.random().toString(36).substring(7)
-                );
-                const processedQuery = vsetts?.query?.replace(/\^/g, ";");
-                const processedReturn = vsetts?.["return-list"]?.replace(
-                    /\^/g,
-                    ";"
-                );
-
-                const response = await axios.get(route("candidates.poll"), {
-                    params: {
-                        call: vsetts?.viewform,
-                        url: processedUrl,
-                        query: processedQuery,
-                        ret: processedReturn,
-                    },
-                });
-
-                if (response.data?.data) {
-                    const processedData = Array.isArray(response.data.data)
-                        ? response.data.data
-                        : Object.values(response.data.data || {});
-
-                    if (processedData.length > 0) {
-                        setTableData(processedData);
-                        setCurrentData(processedData);
-                        setLastUpdateTime(Date.now());
-                    }
-                }
-            } catch (error) {
-                console.error("Polling error:", error);
-                setPollingEnabled(false);
-            }
-        };
-
-        if (pollingEnabled) {
-            pollForUpdates();
-            intervalId = setInterval(pollForUpdates, updateInterval);
-        }
-
-        return () => {
-            if (intervalId) {
-                clearInterval(intervalId);
-            }
-        };
-    }, [pollingEnabled, vsetts?.viewform, updateInterval, vsetts]);
-
-    // Apply filters effect
-    useEffect(() => {
-        const filteredData = Array.isArray(tableData)
-            ? tableData
-            : Object.values(tableData || {});
-
-        let filtered = [...filteredData];
-
-        // Apply filters
-        Object.entries(filterValues).forEach(([columnId, selectedValues]) => {
-            if (selectedValues && selectedValues.length > 0) {
-                filtered = filtered.filter((row) => {
-                    const value = row[columnId] || row[columnId?.toLowerCase()];
-                    return selectedValues.includes(value?.toString());
-                });
-            }
-        });
-
-        // Apply search filter
-        if (searchValue) {
-            const searchLower = searchValue.toLowerCase();
-            filtered = filtered.filter((row) =>
-                Object.values(row).some((value) =>
-                    String(value).toLowerCase().includes(searchLower)
-                )
-            );
-        }
-
-        setCurrentData(filtered);
-    }, [tableData, filterValues, searchValue]);
-
-    const popupContextValue = useMemo(
-        () => ({
-            setActivePopup,
-            formFields: structuredFormFields,
-            formSettings: {
-                ...popups,
-                saveUrl: formSettings?.saveURL || "",
-                saveData: formSettings?.saveData || "",
-            },
-            handlePopupSubmit,
-        }),
-        [popups, formSettings, structuredFormFields]
-    );
-
-    // Extract crucial filters from vsetts
-    useEffect(() => {
-        if (vsetts.tablefilters) {
-            const filters = vsetts.tablefilters
-                .split(";")
-                .map((filter) => filter.trim());
-            console.log("Crucial Filters:", filters);
-            console.log("Table Filters from vsetts:", vsetts.tablefilters);
-        }
-    }, [vsetts.tablefilters]);
-
     return (
         <PopupContext.Provider value={popupContextValue}>
             <div className="flex flex-col h-full">
@@ -553,6 +563,8 @@ const Table = ({
                     filterValues={filterValues}
                     showColumnSelector={showColumnSelector}
                     setShowColumnSelector={setShowColumnSelector}
+                    massCellSelect={massCellSelect}
+                    setMassCellSelect={setMassCellSelect}
                 />
 
                 <FilterSection
@@ -587,6 +599,8 @@ const Table = ({
                     disableRowClick={disableRowClick}
                     handleCellClick={handleCellClick}
                     isSubmitting={isSubmitting}
+                    isCellSelected={isCellSelected}
+                    massCellSelect={massCellSelect}
                 />
 
                 <Pagination
@@ -617,4 +631,5 @@ const Table = ({
         </PopupContext.Provider>
     );
 };
+
 export default Table;

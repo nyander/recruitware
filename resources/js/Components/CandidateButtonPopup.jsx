@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { FormFields } from "./FormFields";
+import { useContext } from "react";
+import { PopupContext } from "./PopupContext";
 
 const CandidateButtonPopup = ({
     isOpen = false,
@@ -16,26 +18,22 @@ const CandidateButtonPopup = ({
     const [initialFormValues, setInitialFormValues] = useState({});
     const [attachmentValues, setAttachmentValues] = useState({}); // Add this state
 
+    // In CandidateButtonPopup.jsx
     const handleButtonClick = (button) => {
         if (button.action === "closePopup") {
             onClose();
             return;
         }
 
-        // Log the current states to debug
-        console.log("Current States:", {
-            formData,
-            changedFields,
-            attachmentValues,
-            buttonUpdates: button.updates,
-        });
+        // Get the selectedToggleValues from context
+        const { selectedToggleValues } = useContext(PopupContext);
 
-        // Create submission data including attachments
+        // Create submission data including attachments and selected values
         const updatedData = {
             ...formData,
             ...changedFields,
             ...button.updates,
-            // Explicitly include AttachFile from attachmentValues
+            selectedToggleValues, // Using selectedToggleValues from context
             AttachFile:
                 attachmentValues["AttachFile"] ||
                 formData["AttachFile"] ||

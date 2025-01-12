@@ -165,7 +165,12 @@ public function getCandidatePage(Request $request, $name, $call)
             $saveUrl = $request->input('saveUrl');
             $saveData = $request->input('saveData');
 
-            // dd($request);
+            // Extract selectedToggleValues if they exist
+            $selectedToggleValues = null;
+            if (isset($changes['selectedToggleValues'])) {
+                $selectedToggleValues = $changes['selectedToggleValues'];
+                unset($changes['selectedToggleValues']); // Remove from changes array
+            }
 
             // Process the changes to replace $Author with session authID
             $processedChanges = collect($changes)->map(function ($value, $key) {
@@ -178,13 +183,30 @@ public function getCandidatePage(Request $request, $name, $call)
                 return $value;
             })->all();
 
-            Log::debug('processedChanges', [
-                'changes' => $changes,
-                'processedChanges' => $processedChanges
+            Log::debug('Pre-processing URL data', [
+                'saveUrl' => $saveUrl,
+                'saveData' => $saveData,
+                'selectedToggleValues' => $selectedToggleValues
             ]);
+
+            // If we have selectedToggleValues, replace $Selected in the saveData
+            if ($selectedToggleValues && !empty($selectedToggleValues)) {
+                // Join the selected values with semicolons
+                $selectedValuesString = implode(';', $selectedToggleValues);
+                // Replace $Selected with the actual values
+                $saveData = str_replace('$Selected', $selectedValuesString, $saveData);
+            }
 
             $formattedChanges = $this->formatChangesForUrl($processedChanges);
             $saveDataChanges = $this->appendChangesToUrl($saveData, $formattedChanges);
+
+            Log::debug('Final URL data', [
+                'saveUrl' => $saveUrl,
+                'saveDataChanges' => $saveDataChanges
+            ]);
+            dd($formattedChanges, $saveDataChanges);
+
+            
 
             // Perform the external update
             $this->externalAuthService->updateCandidate($saveUrl, $saveDataChanges);
