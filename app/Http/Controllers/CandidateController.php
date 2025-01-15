@@ -204,7 +204,7 @@ public function getCandidatePage(Request $request, $name, $call)
                 'saveUrl' => $saveUrl,
                 'saveDataChanges' => $saveDataChanges
             ]);
-            dd($formattedChanges, $saveDataChanges);
+            // dd($formattedChanges, $saveDataChanges);
 
             
 
