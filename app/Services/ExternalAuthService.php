@@ -414,7 +414,7 @@ class ExternalAuthService
                             'is a1 >= rList' => count($a1) >= count($rList),
                         ]);
                     
-                        Log::debug('Return val Value End Result' , ['a1' => $a1]);
+                        Log::debug('Return val Value End Result' , ['a1' => $a1, 'a1 - the data count' => count($a1), 'rList - the data count' => count($rList)]);
                         if (count($a1) >= count($rList)) {
                             $docId = end($a1); // Get last element safely
                             $dataValues = array_slice($a1, 0, count($rList)); // Take only needed values

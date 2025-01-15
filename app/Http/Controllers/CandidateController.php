@@ -302,6 +302,7 @@ public function getCandidatePage(Request $request, $name, $call)
     public function pollData(Request $request)
 {
     try {
+        Log::debug("Hello world - pollData");
         $call = $request->query('call');
         $url = $request->query('url');
         $query = $request->query('query');
@@ -345,21 +346,25 @@ public function getCandidatePage(Request $request, $name, $call)
     public function getTableData(Request $request)
     {
         try {
+            Log::debug("Hello World:", ['requests' => $request]);
             Log::debug('Fetching table data');
             $url = $request->input('url');
             $query = $request->input('query');
             $buttons = $request->input('buttons');
             $popups = $request->input('popups');
+            $return = $request->input('returnList');
             
             $viewForm = $request->input('viewForm');
             $getUserSettingsString = "Fields|".$viewForm;
             $formFields = $this->externalAuthService->collectionFormSettings($getUserSettingsString)['sets'];
             $structuredFormFields = $this->externalAuthService->structureFormFields($formFields);
+
             
-            $candidateData = $this->externalAuthService->collectionUserSettings($viewForm, $url, $query);
+            
+            $candidateData = $this->externalAuthService->collectionUserSettings($viewForm, $url, $query, $return);
             
             // Add debug logging to inspect the structure
-            Log::debug('Butt:on Raw candidate data', ['data' => $candidateData]);
+            Log::debug('Button Raw candidate data', ['data' => $candidateData]);
             
             $response = [
                 'data' => array_values($candidateData['data'] ?? []), // Remove one level of nesting

@@ -27,6 +27,8 @@ const TableField = ({ field, fieldInfo }) => {
                 const viewForm = settings.viewform;
                 const buttons = settings.Buttons?.replace(/\^/g, ";") || "";
                 const popups = settings.Popups?.replace(/\^/g, ";") || "";
+                const returnList =
+                    settings["return-list"]?.replace(/\^/g, ";") || "";
 
                 console.log("Making request with params:", {
                     viewForm,
@@ -34,6 +36,7 @@ const TableField = ({ field, fieldInfo }) => {
                     query: settings.query,
                     buttons,
                     popups,
+                    returnList,
                 });
 
                 const response = await axios.get(
@@ -45,6 +48,7 @@ const TableField = ({ field, fieldInfo }) => {
                             query: settings.query,
                             buttons,
                             popups,
+                            returnList,
                         },
                     }
                 );

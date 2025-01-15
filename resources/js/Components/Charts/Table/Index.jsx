@@ -15,6 +15,7 @@ import Pagination from "./components/Pagination";
 import CandidateButtonPopup from "../../CandidateButtonPopup";
 import { router } from "@inertiajs/react";
 import axios from "axios";
+import useTableData from "./hooks/useTableData";
 
 const Table = ({
     columns: initialColumns,
@@ -47,18 +48,34 @@ const Table = ({
             typeof col === "string" ? col : col.Header
         )
     );
-    const [pollingEnabled, setPollingEnabled] = useState(true);
-    const [tableData, setTableData] = useState(rawData);
-    const [currentData, setCurrentData] = useState(rawData);
-    const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
     const [massCellSelect, setMassCellSelect] = useState(false);
+
+    const {
+        tableData,
+        currentData,
+        isLoading,
+        error,
+        lastUpdateTime,
+        pollingEnabled,
+        setPollingEnabled,
+        refreshData,
+    } = useTableData(
+        rawData,
+        initialColumns,
+        vsetts,
+        updateInterval,
+        filterValues,
+        searchValue
+    );
 
     const columns = useMemo(
         () =>
             initialColumns.map((col) => ({
                 Header: typeof col === "string" ? col : col.Header,
                 accessor: (row) => {
+                    // Check both the exact case and lowercase version of the key
                     const value = row[col] || row[col?.toLowerCase()];
+                    // Return empty string if value is null/undefined to avoid rendering issues
                     return value ?? "";
                 },
             })),
@@ -153,8 +170,11 @@ const Table = ({
     const tableInstance = useTable(
         {
             columns,
-            data: currentData,
-            initialState: { pageIndex: 0, pageSize: 10 },
+            data: currentData || [],
+            initialState: {
+                pageIndex: 0,
+                pageSize: 10,
+            },
             autoResetPage: false,
             autoResetSortBy: false,
             autoResetFilters: false,
@@ -426,17 +446,20 @@ const Table = ({
                 saveUrl: formSettings?.saveURL || "",
                 saveData: formSettings?.saveData || "",
             },
-            handlePopupSubmit,
-            selectedToggleValues,
+            handlePopupSubmit: async (updates) => {
+                try {
+                    setIsSubmitting(true);
+                    await handlePopupSubmit(updates);
+                } catch (error) {
+                    console.error("Error submitting popup:", error);
+                } finally {
+                    setIsSubmitting(false);
+                }
+            },
+            selectedToggleValues: [],
             massCellSelect,
         }),
-        [
-            popups,
-            formSettings,
-            structuredFormFields,
-            selectedToggleValues,
-            massCellSelect,
-        ]
+        [popups, formSettings, structuredFormFields, massCellSelect]
     );
 
     // Log selectedToggleValues whenever it changes
@@ -478,7 +501,7 @@ const Table = ({
 
     useEffect(() => {
         if (buttons && popups) {
-            const parsedBtn = buttons.split("@@").map((buttonStr) => {
+            const buttonsList = buttons.split("@@").map((buttonStr) => {
                 const [
                     name,
                     icon,
@@ -490,18 +513,11 @@ const Table = ({
                     type = "button",
                     style = "",
                 ] = buttonStr.split(";");
-
-                const condition =
-                    fieldString?.includes("=") || fieldString?.includes("!=")
-                        ? fieldString
-                        : null;
-
                 return {
                     name,
                     icon,
                     popupId: popupId?.replace("loadPop_", ""),
-                    fields:
-                        !condition && fieldString ? fieldString.split("~") : [],
+                    fields: fieldString ? fieldString.split("~") : [],
                     values: valueString ? valueString.split("~") : [],
                     saveUrl: saveUrl || "",
                     saveData: saveData || "",
@@ -509,38 +525,36 @@ const Table = ({
                     style: style || "",
                 };
             });
-            setParsedButtons(parsedBtn);
+            setParsedButtons(buttonsList);
 
             const popupsMap = {};
             popups.split("@@").forEach((popupStr) => {
                 const [id, title, columns, fields, buttonStr] =
                     popupStr.split("~");
-                const popupButtons = buttonStr.split("$$").map((btn) => {
-                    const [name, ...actions] = btn.split(";");
-
-                    if (actions.length === 1 && actions[0] === "closePopup()") {
-                        return { name, action: "closePopup" };
-                    }
-
-                    const updates = {};
-                    actions.forEach((update) => {
-                        const [key, value] = update.split("=");
-                        if (key && value) {
-                            updates[key] = value.startsWith("$")
-                                ? value
-                                : value.trim();
-                        }
-                    });
-
-                    return { name, updates };
-                });
-
                 popupsMap[id] = {
                     id,
                     title,
                     columns: parseInt(columns),
                     fields: fields.split(";"),
-                    buttons: popupButtons,
+                    buttons: buttonStr.split("$$").map((btn) => {
+                        const [name, ...actions] = btn.split(";");
+                        if (
+                            actions.length === 1 &&
+                            actions[0] === "closePopup()"
+                        ) {
+                            return { name, action: "closePopup" };
+                        }
+                        const updates = {};
+                        actions.forEach((update) => {
+                            const [key, value] = update.split("=");
+                            if (key && value) {
+                                updates[key] = value.startsWith("$")
+                                    ? value
+                                    : value.trim();
+                            }
+                        });
+                        return { name, updates };
+                    }),
                 };
             });
             setParsedPopups(popupsMap);
@@ -582,6 +596,7 @@ const Table = ({
                     parsedPopups={parsedPopups}
                     selectedDates={selectedDates}
                     resolveLookupOptions={resolveLookupOptions}
+                    isLoading={isLoading}
                 />
 
                 <TableActions
@@ -604,6 +619,7 @@ const Table = ({
                     isCellSelected={isCellSelected}
                     massCellSelect={massCellSelect}
                     handleRowClick={handleRowClick}
+                    isLoading={isLoading}
                 />
 
                 <Pagination
