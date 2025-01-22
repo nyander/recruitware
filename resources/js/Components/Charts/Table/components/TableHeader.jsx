@@ -16,6 +16,7 @@ const TableHeader = ({
     filterValues,
     massCellSelect, // Add this prop
     setMassCellSelect, // Add this prop
+    vsetts,
 }) => {
     const [showColumnSelector, setShowColumnSelector] = useState(false);
 
@@ -33,26 +34,41 @@ const TableHeader = ({
     };
 
     return (
-        <div className="bg-white px-4 py-3 border-b border-gray-200">
+        <div className="bg-white py-3 border-b border-gray-200">
             <div className="flex flex-col space-y-2">
                 {/* Top Row Controls */}
                 <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                        <label className="relative inline-flex items-center cursor-pointer">
+                    {/* <div className="flex items-center space-x-2">
+                        <label
+                            className={`relative inline-flex items-center ${
+                                !vsetts.multiSelect
+                                    ? "cursor-not-allowed opacity-50"
+                                    : "cursor-pointer"
+                            }`}
+                        >
                             <input
                                 type="checkbox"
                                 className="sr-only peer"
                                 checked={massCellSelect}
-                                onChange={() =>
-                                    setMassCellSelect(!massCellSelect)
-                                }
+                                onChange={() => {
+                                    if (!vsetts.multiSelect) return;
+                                    setMassCellSelect(!massCellSelect);
+                                }}
+                                disabled={!vsetts.multiSelect}
                             />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            <span className="ml-3 text-sm font-medium text-gray-700">
-                                Multi Select
-                            </span>
+                            <div
+                                className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer 
+                                ${
+                                    massCellSelect && vsetts.multiSelect
+                                        ? "peer-checked:bg-blue-600"
+                                        : "peer-checked:bg-gray-400"
+                                }
+                                peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white 
+                                after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 
+                                after:border after:rounded-full after:h-5 after:w-5 after:transition-all`}
+                            />
                         </label>
-                    </div>
+                    </div> */}
                     {/* Column Selector */}
                     <div className="relative">
                         <button

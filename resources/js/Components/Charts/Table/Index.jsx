@@ -16,6 +16,7 @@ import CandidateButtonPopup from "../../CandidateButtonPopup";
 import { router } from "@inertiajs/react";
 import axios from "axios";
 import useTableData from "./hooks/useTableData";
+import MultiSelectDropdown from "./components/MultiSelectDropdown";
 
 const Table = ({
     columns: initialColumns,
@@ -48,7 +49,16 @@ const Table = ({
             typeof col === "string" ? col : col.Header
         )
     );
-    const [massCellSelect, setMassCellSelect] = useState(false);
+
+    const multiSelectEnabled = vsetts?.multiSelect === "true";
+    // Initialize with vsetts.multiSelect
+    const [massCellSelect, setMassCellSelect] = useState(multiSelectEnabled);
+
+    // Add effect to track changes to vsetts.multiSelect
+    useEffect(() => {
+        console.log("Current vsetts.multiSelect:", vsetts?.multiSelect);
+        setMassCellSelect(vsetts?.multiSelect === "true");
+    }, []);
 
     const {
         tableData,
@@ -239,6 +249,7 @@ const Table = ({
                 disableRowClick,
                 massCellSelect,
                 cellValue: cellInfo.cell.value,
+                vsetts,
             });
 
             // Handle the four conditions:
@@ -561,6 +572,36 @@ const Table = ({
         }
     }, [buttons, popups]);
 
+    const crucialFilters = useMemo(() => {
+        return vsetts.tablefilters?.split(";").filter(Boolean) || [];
+    }, [vsetts.tablefilters]);
+
+    // Add this memoized calculation for unique column values
+    const uniqueColumnValues = useMemo(() => {
+        const values = {};
+        const processData = Array.isArray(currentData)
+            ? currentData
+            : Object.values(currentData || {});
+
+        initialColumns.forEach((col) => {
+            const columnId = typeof col === "string" ? col : col.Header;
+            if (!values[columnId]) {
+                const uniqueVals = new Set();
+                processData.forEach((row) => {
+                    let value = row[columnId] || row[columnId?.toLowerCase()];
+                    if (value !== undefined && value !== null && value !== "") {
+                        // Remove HTML tags if present
+                        value = value.toString().replace(/<[^>]*>/g, "");
+                        uniqueVals.add(value);
+                    }
+                });
+                values[columnId] = Array.from(uniqueVals).sort();
+            }
+        });
+
+        return values;
+    }, [currentData, initialColumns]);
+
     return (
         <PopupContext.Provider value={popupContextValue}>
             <div className="flex flex-col h-full">
@@ -580,9 +621,51 @@ const Table = ({
                     showColumnSelector={showColumnSelector}
                     setShowColumnSelector={setShowColumnSelector}
                     massCellSelect={massCellSelect}
-                    setMassCellSelect={setMassCellSelect}
+                    setMassCellSelect={(value) => {
+                        if (!vsetts.multiSelect) return; // Prevent enabling if not allowed
+                        setMassCellSelect(value);
+                    }}
+                    vsetts={vsetts}
                 />
-
+                {showAdvancedSearch && (
+                    <div className="p-4 border rounded-md bg-gray-50 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {columns
+                                .filter(
+                                    (column) =>
+                                        !crucialFilters.includes(column.Header)
+                                )
+                                .map((column) => (
+                                    <div
+                                        key={column.Header}
+                                        className="space-y-1"
+                                    >
+                                        <label className="text-sm font-medium text-gray-700">
+                                            {column.Header}
+                                        </label>
+                                        <MultiSelectDropdown
+                                            options={
+                                                uniqueColumnValues[
+                                                    column.Header
+                                                ] || []
+                                            }
+                                            value={
+                                                filterValues[column.Header] ||
+                                                []
+                                            }
+                                            onChange={(values) =>
+                                                handleFilterChange(
+                                                    column.Header,
+                                                    values
+                                                )
+                                            }
+                                            placeholder={`Select ${column.Header}`}
+                                        />
+                                    </div>
+                                ))}
+                        </div>
+                    </div>
+                )}
                 <FilterSection
                     crucialFilters={vsetts.tablefilters?.split(";") || []}
                     parsedButtons={parsedButtons}
@@ -598,7 +681,6 @@ const Table = ({
                     resolveLookupOptions={resolveLookupOptions}
                     isLoading={isLoading}
                 />
-
                 <TableActions
                     parsedButtons={parsedButtons}
                     setActivePopup={setActivePopup}
@@ -606,7 +688,6 @@ const Table = ({
                     selectedCellData={selectedCellData}
                     isSubmitting={isSubmitting}
                 />
-
                 <TableBody
                     getTableProps={getTableProps}
                     getTableBodyProps={getTableBodyProps}
@@ -621,7 +702,6 @@ const Table = ({
                     handleRowClick={handleRowClick}
                     isLoading={isLoading}
                 />
-
                 <Pagination
                     canPreviousPage={canPreviousPage}
                     canNextPage={canNextPage}
@@ -634,7 +714,6 @@ const Table = ({
                     previousPage={previousPage}
                     pageOptions={pageOptions}
                 />
-
                 {activePopup && (
                     <CandidateButtonPopup
                         isOpen={true}
