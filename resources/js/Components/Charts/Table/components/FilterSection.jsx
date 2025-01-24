@@ -1,5 +1,6 @@
 import React from "react";
 import { ChevronDown } from "lucide-react";
+import CheckboxDropdown from "./CheckboxDropdown";
 
 // Calendar Filter Subcomponent
 const CalendarFilter = ({
@@ -128,88 +129,46 @@ const FilterSection = ({
     const dropdownButtons = parsedButtons.filter(
         (button) => button.type?.toLowerCase() === "dropdown"
     );
+    const checkboxButtons = parsedButtons.filter(
+        (button) => button.type?.toLowerCase() === "checkbox"
+    );
     const calendarButtons = parsedButtons.filter(
         (button) => button.type?.toLowerCase() === "calendar"
     );
 
-    // Render crucial filters section
-    const renderCrucialFilters = () => {
-        if (!crucialFilters?.length) return null;
-
-        return (
-            <div className="flex flex-wrap gap-4 mt-4">
-                {crucialFilters.map((filterName) => {
-                    const availableOptions =
-                        dependentColumnValues[filterName] || [];
-                    const selectedValues = filterValues[filterName] || [];
-                    const unavailableSelections = selectedValues.filter(
-                        (value) => !availableOptions.includes(value)
-                    );
+    return (
+        <div className="flex items-center gap-4 p-2">
+            {/* Checkbox Buttons */}
+            {checkboxButtons.length > 0 &&
+                checkboxButtons.map((button) => {
+                    const options = resolveLookupOptions(
+                        parsedPopups[button.popupId]?.fields?.[0],
+                        structuredFormFields[
+                            parsedPopups[button.popupId]?.fields?.[0]
+                        ],
+                        structuredFormFields
+                    ).map((option) => ({
+                        value: option.value || option.label,
+                        label: option.label,
+                    }));
 
                     return (
-                        <div key={filterName} className="flex-1 min-w-[200px]">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                {filterName}
-                                <span className="text-xs text-gray-500 ml-2">
-                                    ({availableOptions.length} available)
-                                </span>
-                            </label>
-                            <MultiSelectDropdown
-                                options={availableOptions}
-                                value={selectedValues}
+                        <div key={button.name} className="flex-none w-64">
+                            <CheckboxDropdown
+                                title={button.name}
+                                options={options}
+                                selectedValues={filterValues[button.name] || []}
                                 onChange={(values) =>
-                                    handleFilterChange(filterName, values)
+                                    handleDropdownChange(button, values)
                                 }
-                                placeholder={`Select ${filterName}`}
-                                unavailableSelections={unavailableSelections}
+                                isDisabled={isSubmitting}
+                                isSubmitting={isSubmitting}
                             />
-
-                            {/* Selected values tags */}
-                            {selectedValues.length > 0 && (
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                    {selectedValues.map((value) => (
-                                        <span
-                                            key={value}
-                                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
-                                                ${
-                                                    unavailableSelections.includes(
-                                                        value
-                                                    )
-                                                        ? "bg-red-100 text-red-800"
-                                                        : "bg-blue-100 text-blue-800"
-                                                }`}
-                                        >
-                                            {value}
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const newValues =
-                                                        selectedValues.filter(
-                                                            (v) => v !== value
-                                                        );
-                                                    handleFilterChange(
-                                                        filterName,
-                                                        newValues
-                                                    );
-                                                }}
-                                                className="flex-shrink-0 ml-1 h-4 w-4 rounded-full inline-flex items-center justify-center hover:bg-blue-200 focus:outline-none"
-                                            >
-                                                <X className="h-3 w-3" />
-                                            </button>
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
                         </div>
                     );
                 })}
-            </div>
-        );
-    };
 
-    return (
-        <div className="flex items-center gap-4">
-            {/* Dropdown Buttons */}
+            {/* Regular Dropdown Buttons */}
             {dropdownButtons.length > 0 &&
                 dropdownButtons.map((button) => (
                     <div key={button.name} className="flex-none">
@@ -254,9 +213,6 @@ const FilterSection = ({
                         />
                     </div>
                 ))}
-
-            {/* Render crucial filters */}
-            {renderCrucialFilters()}
         </div>
     );
 };

@@ -37,7 +37,7 @@ const TableHeader = ({
         <div className="bg-white py-3 border-b border-gray-200">
             <div className="flex flex-col space-y-2">
                 {/* Top Row Controls */}
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-4 px-2">
                     {/* <div className="flex items-center space-x-2">
                         <label
                             className={`relative inline-flex items-center ${

@@ -165,13 +165,6 @@ public function getCandidatePage(Request $request, $name, $call)
             $saveUrl = $request->input('saveUrl');
             $saveData = $request->input('saveData');
 
-            // Extract selectedToggleValues if they exist
-            $selectedToggleValues = null;
-            if (isset($changes['selectedToggleValues'])) {
-                $selectedToggleValues = $changes['selectedToggleValues'];
-                unset($changes['selectedToggleValues']); // Remove from changes array
-            }
-
             // Process the changes to replace $Author with session authID
             $processedChanges = collect($changes)->map(function ($value, $key) {
                 if ($value === '$Author$' || $value === '$Author') {
@@ -183,45 +176,29 @@ public function getCandidatePage(Request $request, $name, $call)
                 return $value;
             })->all();
 
-            Log::debug('Pre-processing URL data', [
-                'saveUrl' => $saveUrl,
-                'saveData' => $saveData,
-                'selectedToggleValues' => $selectedToggleValues
-            ]);
-
-            // If we have selectedToggleValues, replace $Selected in the saveData
-            if ($selectedToggleValues && !empty($selectedToggleValues)) {
-                // Join the selected values with semicolons
-                $selectedValuesString = implode(';', $selectedToggleValues);
-                // Replace $Selected with the actual values
-                $saveData = str_replace('$Selected', $selectedValuesString, $saveData);
-            }
-
             $formattedChanges = $this->formatChangesForUrl($processedChanges);
             $saveDataChanges = $this->appendChangesToUrl($saveData, $formattedChanges);
-
-            Log::debug('Final URL data', [
-                'saveUrl' => $saveUrl,
-                'saveDataChanges' => $saveDataChanges
-            ]);
-            // dd($formattedChanges, $saveDataChanges);
-
-            
 
             // Perform the external update
             $this->externalAuthService->updateCandidate($saveUrl, $saveDataChanges);
 
-            // Flash success message to the session
-            return redirect()->back()
-                ->with('success', 'Changes have been submitted successfully!');
+            // Return an Inertia response
+            if ($request->wantsJson()) {
+                return response()->json(['success' => true]);
+            }
+
+            return back()->with('success', 'Changes have been submitted successfully!');
+
         } catch (\Exception $e) {
-            // Log the error and flash an error message
             Log::error('Error submitting changes: ' . $e->getMessage());
-            return redirect()->back()
-                ->with('error', 'Failed to submit changes. Please try again.');
+            
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            }
+
+            return back()->with('error', 'Failed to submit changes. Please try again.');
         }
     }
-
 
 
     /**

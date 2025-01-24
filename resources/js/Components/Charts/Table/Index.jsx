@@ -353,6 +353,15 @@ const Table = ({
 
     const handleDropdownChange = async (button, value) => {
         try {
+            // Update local state first
+            if (button.type?.toLowerCase() === "checkbox") {
+                // Update filterValues immediately for visual feedback
+                setFilterValues((prev) => ({
+                    ...prev,
+                    [button.name]: value,
+                }));
+            }
+
             setIsSubmitting(true);
             const popupConfig = parsedPopups[button.popupId];
 
@@ -368,18 +377,36 @@ const Table = ({
             if (!submitButton) return;
 
             const field = popupConfig.fields[0];
+
+            // For checkbox type, join the values with semicolons
+            const fieldValue = Array.isArray(value) ? value.join(";") : value;
+
             const updates = {
                 ...submitButton.updates,
-                [field]: value,
+                [field]: fieldValue,
             };
 
-            await router.post(route("candidates.store"), {
+            // Make the server request without causing a full page reload
+            await axios.post(route("candidates.store"), {
                 changes: updates,
                 saveUrl: button.saveUrl || formSettings?.saveURL || "",
                 saveData: button.saveData || formSettings?.saveData || "",
             });
+
+            // Optionally refresh the data without page reload
+            if (refreshData) {
+                await refreshData();
+            }
         } catch (error) {
             console.error("Error handling dropdown change:", error);
+            // Revert the local state if the server request failed
+            if (button.type?.toLowerCase() === "checkbox") {
+                setFilterValues((prev) => {
+                    const newState = { ...prev };
+                    delete newState[button.name];
+                    return newState;
+                });
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -410,11 +437,29 @@ const Table = ({
                 datelookup: date,
             };
 
-            await router.post(route("candidates.store"), {
-                changes: updates,
-                saveUrl: button.saveUrl || formSettings?.saveURL || "",
-                saveData: button.saveData || formSettings?.saveData || "",
-            });
+            // Use Inertia for the request
+            await router.post(
+                route("candidates.store"),
+                {
+                    changes: updates,
+                    saveUrl: button.saveUrl || formSettings?.saveURL || "",
+                    saveData: button.saveData || formSettings?.saveData || "",
+                },
+                {
+                    preserveScroll: true,
+                    preserveState: true,
+                    onSuccess: () => {
+                        // Handle success
+                        if (refreshData) {
+                            refreshData();
+                        }
+                    },
+                    onError: (errors) => {
+                        // Handle errors
+                        console.error("Error updating calendar:", errors);
+                    },
+                }
+            );
         } catch (error) {
             console.error("Error handling calendar change:", error);
         } finally {
