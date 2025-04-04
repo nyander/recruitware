@@ -21,28 +21,27 @@ class DashboardController extends Controller
     public function index()
     {
         $menu = $this->externalAuthService->getMenuData();
-        
+
         return Inertia::render('Dashboard', [
             'menu' => $menu
         ]);
     }
-    
+
     public function getDashboardData(): JsonResponse
     {
         try {
             // First try to get data from external service if available
             $externalData = $this->getExternalData();
-            
+
             if ($externalData) {
                 return response()->json($externalData);
             }
 
             // If no external data, return demo data
             return response()->json($this->getDemoData());
-
         } catch (\Exception $e) {
             Log::error('Dashboard data error: ' . $e->getMessage());
-            
+
             // On error, still return demo data to keep UI working
             return response()->json($this->getDemoData());
         }

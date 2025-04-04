@@ -17,7 +17,7 @@ use Inertia\Inertia;
 // Welcome page - accessible to all
 Route::get('/', function () {
     $isLoggedIn = Session::has('authID') && Session::has('userData');
-    
+
     if (!$isLoggedIn) {
         Session::flush();
         Cookie::forget('RW_AuthID');
@@ -41,6 +41,13 @@ Route::get('/', function () {
     ]);
 })->name('welcome');
 
+// Direct route for dashboard
+Route::get('/Dashboard/Dashboard', function () {
+    // Instead of redirecting, render the candidate page directly
+    $controller = app()->make(App\Http\Controllers\CandidateController::class);
+    return $controller->getCandidatePage(request(), 'Dashboard', 'Dashboard');
+})->name('dashboard.redirect')->middleware(['external.auth']);
+
 Route::get('/login', [AuthenticatedSessionController::class, 'create'])
     ->name('login');
 Route::post('/login', [AuthenticatedSessionController::class, 'store']);
@@ -61,20 +68,20 @@ Route::get('/upload-callback', function () {
 Route::middleware(['external.auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/dashboard-data', [DashboardController::class, 'getDashboardData']);
-    
 
 
-    
+
+
     // Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     // Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     // Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    
+
     Route::resource('tablesubmissions', TableSubmissionController::class)->only(['index', 'store', 'create']);
-    
+
     // New routes for bookings and clients
     Route::get('/bookings', [TableSubmissionController::class, 'bookings'])->name('bookings.index');
     Route::get('/clients', [TableSubmissionController::class, 'clients'])->name('clients.index');
-    
+
     // Candidates routes
     Route::prefix('candidates')->name('candidates.')->group(function () {
         Route::get('/no-contact', [CandidateController::class, 'noContactList'])->name('no-contact');
@@ -92,7 +99,7 @@ Route::middleware(['external.auth'])->group(function () {
         Route::get('/second-tier-contracts', [UnderDevelopmentController::class, 'show'])->name('second-tier-contracts');
         Route::get('/archive', [UnderDevelopmentController::class, 'show'])->name('archive');
     });
-    
+
     // Human Resources routes
     Route::prefix('hr')->name('hr.')->group(function () {
         Route::get('/staff-details', [UnderDevelopmentController::class, 'show'])->name('staff-details');
@@ -104,14 +111,14 @@ Route::middleware(['external.auth'])->group(function () {
         Route::get('/leavers', [UnderDevelopmentController::class, 'show'])->name('leavers');
         Route::get('/audit', [UnderDevelopmentController::class, 'show'])->name('audit');
     });
-    
+
     // Rota routes
     Route::prefix('rota')->name('rota.')->group(function () {
         Route::get('/staff', [UnderDevelopmentController::class, 'show'])->name('staff');
         Route::get('/meetings', [UnderDevelopmentController::class, 'show'])->name('meetings');
         Route::get('/staff-hours', [UnderDevelopmentController::class, 'show'])->name('staff-hours');
     });
-    
+
     // Planning routes
     Route::prefix('planning')->name('planning.')->group(function () {
         Route::get('/ad-hoc', [UnderDevelopmentController::class, 'show'])->name('ad-hoc');
@@ -124,7 +131,7 @@ Route::middleware(['external.auth'])->group(function () {
         Route::get('/oncall-sheets', [UnderDevelopmentController::class, 'show'])->name('oncall-sheets');
         Route::get('/payroll-issues', [UnderDevelopmentController::class, 'show'])->name('payroll-issues');
     });
-    
+
     // Payroll routes
     Route::prefix('payroll')->name('payroll.')->group(function () {
         Route::get('/client-hours', [UnderDevelopmentController::class, 'show'])->name('client-hours');
@@ -134,7 +141,7 @@ Route::middleware(['external.auth'])->group(function () {
         Route::get('/remittances', [UnderDevelopmentController::class, 'show'])->name('remittances');
         Route::get('/reports', [UnderDevelopmentController::class, 'show'])->name('reports');
     });
-    
+
     // Invoicing routes
     Route::prefix('invoicing')->name('invoicing.')->group(function () {
         Route::get('/financial', [UnderDevelopmentController::class, 'show'])->name('financial');
@@ -147,21 +154,21 @@ Route::get('/upload-proxy.php', function () {
 });
 
 Route::get('/css/upload-button.css', function () {
-    return response()
-        ->file(public_path('css/upload-button.css'))
-        ->header('Content-Type', 'text/css')
-        ->header('Access-Control-Allow-Origin', '*');
+    $response = response()->file(public_path('css/upload-button.css'));
+    $response->headers->set('Content-Type', 'text/css');
+    $response->headers->set('Access-Control-Allow-Origin', '*');
+    return $response;
 });
 
 Route::get('/api/candidates/poll', [CandidateController::class, 'pollData'])
     ->name('candidates.poll')
     ->middleware(['external.auth']);
 
-    Route::get('/candidates/table-data', [CandidateController::class, 'getTableData'])
+Route::get('/candidates/table-data', [CandidateController::class, 'getTableData'])
     ->name('candidates.table-data')
     ->middleware(['external.auth']);
 
-    Route::get('/{name}/{call}', [CandidateController::class, 'getCandidatePage'])->name('candidates.page');
+Route::get('/{name}/{call}', [CandidateController::class, 'getCandidatePage'])->name('candidates.page');
 
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';
