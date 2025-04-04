@@ -1,0 +1,13 @@
+<!-- <?php
+
+// once user logs in, get the userSetting information
+function origgetUserSettings($Ty){
+    global $vSetts;
+    $v1=array();
+    $url='https://www.recruitware.uk/[FLDR]/profiles.nsf/ag.getprsetts?openagent&[RND]|' . $_SESSION['userName'] . '|' . $Ty;
+    $v1['url']=$url;
+    $v1['data-type']='Settings';
+    $v1['return-type']='Fields';
+    getDataUrl($v1);
+    
+} -->
