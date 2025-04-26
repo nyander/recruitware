@@ -6,7 +6,7 @@ import { Bar, Line, Pie } from "react-chartjs-2";
 import axios from "axios";
 
 // Register Chart.js components
-Chart.register(...registerabless);
+Chart.register(...registerables);
 
 // Dashboard layout components
 const DashboardSection = ({ title, description, children }) => {
