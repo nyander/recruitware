@@ -6,7 +6,7 @@ import { Bar, Line, Pie } from "react-chartjs-2";
 import axios from "axios";
 
 // Register Chart.js components
-Chart.register(...registerables);
+Chart.register(...registerabless);
 
 // Dashboard layout components
 const DashboardSection = ({ title, description, children }) => {
@@ -92,77 +92,117 @@ const StatsCard = ({ title, value, icon, color = "blue" }) => {
 const SortIcon = ({ direction }) => {
     if (!direction) {
         return (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+            >
+                <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+                />
             </svg>
         );
     }
-    
-    return direction === 'asc' ? (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+
+    return direction === "asc" ? (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4 text-blue-600"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 15l7-7 7 7"
+            />
         </svg>
     ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4 text-blue-600"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+            />
         </svg>
     );
 };
 
 // Table component for displaying data in a table format with sorting
 const DataTable = ({ title, columns, data }) => {
-    const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
+    const [sortConfig, setSortConfig] = useState({
+        key: null,
+        direction: null,
+    });
     const [sortedData, setSortedData] = useState([]);
-    
+
     // Update sorted data when data or sort config changes
     useEffect(() => {
         if (!columns || !data || data.length === 0) {
             setSortedData([]);
             return;
         }
-        
+
         let sortableData = [...data];
-        
+
         if (sortConfig.key !== null) {
-            const columnIndex = columns.findIndex(col => col === sortConfig.key);
+            const columnIndex = columns.findIndex(
+                (col) => col === sortConfig.key
+            );
             if (columnIndex !== -1) {
                 sortableData.sort((a, b) => {
                     // Get the values to compare
                     const valueA = a[columnIndex] || "";
                     const valueB = b[columnIndex] || "";
-                    
+
                     // Try to sort as numbers if possible
                     const numA = Number(valueA);
                     const numB = Number(valueB);
-                    
+
                     if (!isNaN(numA) && !isNaN(numB)) {
-                        return sortConfig.direction === 'asc' ? numA - numB : numB - numA;
+                        return sortConfig.direction === "asc"
+                            ? numA - numB
+                            : numB - numA;
                     }
-                    
+
                     // Otherwise sort as strings
-                    return sortConfig.direction === 'asc' 
+                    return sortConfig.direction === "asc"
                         ? String(valueA).localeCompare(String(valueB))
                         : String(valueB).localeCompare(String(valueA));
                 });
             }
         }
-        
+
         setSortedData(sortableData);
     }, [data, sortConfig, columns]);
-    
+
     // Request a sort
     const requestSort = (key) => {
-        let direction = 'asc';
-        
+        let direction = "asc";
+
         if (sortConfig.key === key) {
-            direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+            direction = sortConfig.direction === "asc" ? "desc" : "asc";
         }
-        
+
         setSortConfig({ key, direction });
     };
-    
+
     if (!columns || !data) return null;
-    
+
     return (
         <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg h-full">
             <div className="p-4">
@@ -180,8 +220,12 @@ const DataTable = ({ title, columns, data }) => {
                                     >
                                         <div className="flex items-center space-x-1">
                                             <span>{column}</span>
-                                            <SortIcon 
-                                                direction={sortConfig.key === column ? sortConfig.direction : null} 
+                                            <SortIcon
+                                                direction={
+                                                    sortConfig.key === column
+                                                        ? sortConfig.direction
+                                                        : null
+                                                }
                                             />
                                         </div>
                                     </th>
@@ -329,12 +373,12 @@ const parseChartData = (chartData, columns) => {
     // If data comes in format "Client A~10~12~2;Client B~12~9~-3;..."
     const rows = chartData.split(";").filter(Boolean);
     const columnCount = columns.length;
-    
+
     // For table data, return processed rows and columns
     if (rows.length === 0) return { labels: [], datasets: [] };
 
     // Extract labels (first column from each row)
-    const labels = rows.map(row => {
+    const labels = rows.map((row) => {
         const cells = row.split("~");
         return cells[0] || "";
     });
@@ -344,7 +388,7 @@ const parseChartData = (chartData, columns) => {
     for (let i = 1; i < columnCount; i++) {
         const dataset = {
             label: columns[i],
-            data: rows.map(row => {
+            data: rows.map((row) => {
                 const cells = row.split("~");
                 return parseFloat(cells[i]) || 0;
             }),
@@ -358,9 +402,9 @@ const parseChartData = (chartData, columns) => {
 // Helper function to convert chart data to table format
 const convertToTableData = (chartData) => {
     if (!chartData) return [];
-    
+
     const rows = chartData.split(";").filter(Boolean);
-    return rows.map(row => row.split("~"));
+    return rows.map((row) => row.split("~"));
 };
 
 export default function CandidateChart({
@@ -372,7 +416,7 @@ export default function CandidateChart({
     status,
     viewForm,
     columns = [],
-    vsetts = {}
+    vsetts = {},
 }) {
     const [isClient, setIsClient] = useState(false);
     const [hasError, setHasError] = useState(false);
@@ -391,7 +435,7 @@ export default function CandidateChart({
                 title,
                 viewForm,
                 structuredFormFields,
-                vsetts
+                vsetts,
             });
 
             // Check if we have valid data
@@ -439,55 +483,78 @@ export default function CandidateChart({
 
             // Log available chart types in vsetts and available fields
             console.log("Charts from vsetts:", vsetts.charts);
-            console.log("Available structuredFormFields:", Object.keys(structuredFormFields));
+            console.log(
+                "Available structuredFormFields:",
+                Object.keys(structuredFormFields)
+            );
 
-            const chartTypes = vsetts.charts.split(';').filter(Boolean).map(type => type.trim());
+            const chartTypes = vsetts.charts
+                .split(";")
+                .filter(Boolean)
+                .map((type) => type.trim());
             const chartDataObj = {};
-            
+
             // For demo purposes, we're mocking the API calls
             // In a real implementation, you would make actual API calls to the URLs
             // specified in the structuredFormFields
-            
+
             for (const chartType of chartTypes) {
                 // Fix case sensitivity issue for day_bookings_by_Client_pie
-                const normalizedChartType = chartType.toLowerCase() === 'day_bookings_by_client_pie' 
-                    ? 'day_bookings_by_client_pie' 
-                    : chartType;
-                
+                const normalizedChartType =
+                    chartType.toLowerCase() === "day_bookings_by_client_pie"
+                        ? "day_bookings_by_client_pie"
+                        : chartType;
+
                 // Get chart configuration from structuredFormFields
                 let chartConfig = structuredFormFields[normalizedChartType];
-                
+
                 if (!chartConfig || !chartConfig.label) {
-                    console.log(`Missing config for chart type: ${chartType}, normalized to: ${normalizedChartType}`);
-                    // Try alternate casing if original not found
-                    const alternateKeys = Object.keys(structuredFormFields).filter(
-                        key => key.toLowerCase() === normalizedChartType.toLowerCase()
+                    console.log(
+                        `Missing config for chart type: ${chartType}, normalized to: ${normalizedChartType}`
                     );
-                    
+                    // Try alternate casing if original not found
+                    const alternateKeys = Object.keys(
+                        structuredFormFields
+                    ).filter(
+                        (key) =>
+                            key.toLowerCase() ===
+                            normalizedChartType.toLowerCase()
+                    );
+
                     if (alternateKeys.length > 0) {
                         const alternateKey = alternateKeys[0];
                         console.log(`Found alternate key: ${alternateKey}`);
                         chartConfig = structuredFormFields[alternateKey];
                     } else {
-                        console.log(`No alternate key found for: ${normalizedChartType}`);
+                        console.log(
+                            `No alternate key found for: ${normalizedChartType}`
+                        );
                         continue;
                     }
                 }
 
                 // Parse chart configuration
-                const config = parseChartConfig(normalizedChartType, chartConfig.label);
+                const config = parseChartConfig(
+                    normalizedChartType,
+                    chartConfig.label
+                );
                 if (!config) {
-                    console.log(`Failed to parse config for: ${normalizedChartType}`);
+                    console.log(
+                        `Failed to parse config for: ${normalizedChartType}`
+                    );
                     continue;
                 }
 
                 // In a real implementation, this is where you would make the API call
                 // For now, we'll use mock data
-                const mockData = generateMockChartData(config.type, config.columns.length);
-                
+                const mockData = generateMockChartData(
+                    config.type,
+                    config.columns.length
+                );
+
                 chartDataObj[normalizedChartType] = {
                     config,
-                    data: mockData
+                    data: mockData,
                 };
             }
 
@@ -506,12 +573,12 @@ export default function CandidateChart({
         if (columnCount === 4) {
             return "Client A~10~12~2;Client B~12~9~-3;Client C~19~12~-7;Client D~12~12~0;Client E~4~3~1;Client F~2~4~2;Total~24~30~6";
         }
-        
+
         // For a table with structure "Client|Total"
         if (columnCount === 2) {
             return "Client A~24;Client B~18;Client C~15;Client D~12;Client E~8;Client F~3;Total~80";
         }
-        
+
         // Default
         return "Item 1~10;Item 2~20;Item 3~15;Item 4~25;Item 5~18";
     };
@@ -606,70 +673,66 @@ export default function CandidateChart({
     // Build charts based on structured form fields and vsetts
     const renderCharts = () => {
         if (!vsetts || !vsetts.charts) return null;
-        
-        const chartTypes = vsetts.charts.split(';').filter(Boolean);
+
+        const chartTypes = vsetts.charts.split(";").filter(Boolean);
         const allElements = [];
-        
+
         for (const chartType of chartTypes) {
             const chartInfo = chartData[chartType];
             if (!chartInfo) continue;
-            
+
             const { config, data } = chartInfo;
             const { title, columns, type } = config;
-            
-            if (type === 'table') {
+
+            if (type === "table") {
                 // Add tables to the same grid as charts
                 const tableData = convertToTableData(data);
                 allElements.push(
-                    <DataTable 
-                        key={chartType} 
-                        title={title} 
-                        columns={columns} 
-                        data={tableData} 
+                    <DataTable
+                        key={chartType}
+                        title={title}
+                        columns={columns}
+                        data={tableData}
                     />
                 );
             } else {
                 // Parse data for charts
                 const parsedData = parseChartData(data, columns);
-                
+
                 // Render appropriate chart based on type
-                if (type === 'bar' || type === 'column') {
+                if (type === "bar" || type === "column") {
                     allElements.push(
-                        <BarChartComponent 
-                            key={chartType} 
-                            title={title} 
-                            labels={parsedData.labels} 
-                            datasets={parsedData.datasets} 
+                        <BarChartComponent
+                            key={chartType}
+                            title={title}
+                            labels={parsedData.labels}
+                            datasets={parsedData.datasets}
                         />
                     );
-                } else if (type === 'line') {
+                } else if (type === "line") {
                     allElements.push(
-                        <LineChartComponent 
-                            key={chartType} 
-                            title={title} 
-                            labels={parsedData.labels} 
-                            datasets={parsedData.datasets} 
+                        <LineChartComponent
+                            key={chartType}
+                            title={title}
+                            labels={parsedData.labels}
+                            datasets={parsedData.datasets}
                         />
                     );
-                } else if (type === 'pie') {
+                } else if (type === "pie") {
                     allElements.push(
-                        <PieChartComponent 
-                            key={chartType} 
-                            title={title} 
-                            labels={parsedData.labels} 
-                            datasets={parsedData.datasets} 
+                        <PieChartComponent
+                            key={chartType}
+                            title={title}
+                            labels={parsedData.labels}
+                            datasets={parsedData.datasets}
                         />
                     );
                 }
             }
         }
-        
+
         // Return all visualizations in a single grid
-        return (
-            <DashboardGrid columns={3}>
-                {allElements}
-            </DashboardGrid>
-        );
+        return <DashboardGrid columns={3}>{allElements}</DashboardGrid>;
     };
 
     // Render dashboard with charts and tables
@@ -689,9 +752,7 @@ export default function CandidateChart({
             <Head title={title || "Dashboard"} />
 
             <div className="py-4">
-                <div className="mx-auto sm:px-6 lg:px-8">
-                    {renderCharts()}
-                </div>
+                <div className="mx-auto sm:px-6 lg:px-8">{renderCharts()}</div>
             </div>
         </AuthenticatedLayout>
     );
