@@ -347,6 +347,162 @@ const PieChartComponent = ({ title, labels, datasets }) => {
     );
 };
 
+// Area chart component
+const AreaChartComponent = ({ title, labels, datasets }) => {
+    const data = {
+        labels,
+        datasets: datasets.map((dataset, index) => ({
+            label: dataset.label,
+            data: dataset.data,
+            fill: true,
+            backgroundColor: `hsla(${index * 45}, 70%, 60%, 0.2)`,
+            borderColor: `hsla(${index * 45}, 70%, 50%, 1)`,
+            tension: 0.4,
+            pointRadius: 2,
+        })),
+    };
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+            },
+        },
+    };
+
+    return (
+        <ChartCard title={title}>
+            <Line data={data} options={options} />
+        </ChartCard>
+    );
+};
+
+// Stacked Area chart component
+const StackedAreaChartComponent = ({ title, labels, datasets }) => {
+    const data = {
+        labels,
+        datasets: datasets.map((dataset, index) => ({
+            label: dataset.label,
+            data: dataset.data,
+            fill: true,
+            backgroundColor: `hsla(${index * 45}, 70%, 60%, 0.4)`,
+            borderColor: `hsla(${index * 45}, 70%, 50%, 1)`,
+            tension: 0.4,
+            pointRadius: 2,
+        })),
+    };
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                stacked: true,
+            },
+            x: {
+                stacked: true,
+            },
+        },
+    };
+
+    return (
+        <ChartCard title={title}>
+            <Line data={data} options={options} />
+        </ChartCard>
+    );
+};
+
+// Gauge chart component - implemented as a doughnut chart with special configuration
+const GaugeChartComponent = ({ title, labels, datasets }) => {
+    // Get value from the dataset - typically just one value for a gauge
+    const value = datasets[0]?.data[0] || 0;
+
+    // Calculate percentage for gauge display
+    const percentage = Math.min(100, Math.max(0, value));
+
+    // Create the data structure needed for the gauge
+    const data = {
+        labels: ["Value", "Remaining"],
+        datasets: [
+            {
+                data: [percentage, 100 - percentage],
+                backgroundColor: [
+                    `hsl(${
+                        percentage > 66 ? 120 : percentage > 33 ? 40 : 0
+                    }, 80%, 60%)`,
+                    "#f5f5f5",
+                ],
+                borderWidth: 0,
+                circumference: 180,
+                rotation: 270,
+            },
+        ],
+    };
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "75%",
+        plugins: {
+            tooltip: {
+                enabled: false,
+            },
+            legend: {
+                display: false,
+            },
+        },
+    };
+
+    return (
+        <ChartCard title={title}>
+            <div className="relative h-full">
+                <Pie data={data} options={options} />
+                <div className="absolute bottom-8 left-0 right-0 text-center">
+                    <div className="text-3xl font-bold">{value}</div>
+                    <div className="text-gray-500 text-sm">
+                        {labels[0] || ""}
+                    </div>
+                </div>
+            </div>
+        </ChartCard>
+    );
+};
+
+// Timeline chart component - implemented as a special bar chart
+const TimelineChartComponent = ({ title, labels, datasets }) => {
+    const data = {
+        labels,
+        datasets: datasets.map((dataset, index) => ({
+            label: dataset.label,
+            data: dataset.data,
+            backgroundColor: `hsla(${index * 30}, 70%, 60%, 0.6)`,
+            borderColor: `hsla(${index * 30}, 70%, 50%, 1)`,
+            borderWidth: 1,
+            barPercentage: 0.8,
+        })),
+    };
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: "y", // This makes it horizontal
+        scales: {
+            x: {
+                beginAtZero: true,
+            },
+        },
+    };
+
+    return (
+        <ChartCard title={title}>
+            <Bar data={data} options={options} />
+        </ChartCard>
+    );
+};
+
 // Helper function to parse chart configuration from structured form fields
 const parseChartConfig = (chartType, chartLabel) => {
     const parts = chartLabel.split("^");
@@ -407,6 +563,67 @@ const convertToTableData = (chartData) => {
     return rows.map((row) => row.split("~"));
 };
 
+// Helper function to format objects into the expected string format
+const formatObjectToChartData = (data, chartType) => {
+    // If data is an array of objects
+    if (Array.isArray(data)) {
+        try {
+            // Try to convert array to the expected string format
+            // For example: [{name: "Client A", value: 10}, {name: "Client B", value: 20}]
+            // should become "Client A~10;Client B~20"
+
+            // First, find common keys that might represent column values
+            const sampleObject = data[0] || {};
+            const possibleLabelKeys = [
+                "name",
+                "label",
+                "client",
+                "category",
+                "id",
+            ];
+            const possibleValueKeys = ["value", "count", "total", "amount"];
+
+            const labelKey =
+                possibleLabelKeys.find((key) => key in sampleObject) ||
+                Object.keys(sampleObject)[0];
+
+            // For simple pie/bar charts with just label and value
+            if (
+                chartType === "pie" ||
+                chartType === "bar" ||
+                data.every((item) => Object.keys(item).length === 2)
+            ) {
+                const valueKey =
+                    possibleValueKeys.find((key) => key in sampleObject) ||
+                    Object.keys(sampleObject).find((key) => key !== labelKey);
+
+                if (labelKey && valueKey) {
+                    return data
+                        .map((item) => `${item[labelKey]}~${item[valueKey]}`)
+                        .join(";");
+                }
+            }
+            // For more complex tables with multiple columns
+            else {
+                const keys = Object.keys(sampleObject);
+                return data
+                    .map((item) => {
+                        return keys
+                            .map((key) =>
+                                item[key] !== undefined ? item[key] : ""
+                            )
+                            .join("~");
+                    })
+                    .join(";");
+            }
+        } catch (e) {
+            console.error("Error formatting object data:", e);
+        }
+    }
+
+    return null;
+};
+
 export default function CandidateChart({
     auth,
     title,
@@ -417,6 +634,7 @@ export default function CandidateChart({
     viewForm,
     columns = [],
     vsetts = {},
+    sessionInfo = {},
 }) {
     const [isClient, setIsClient] = useState(false);
     const [hasError, setHasError] = useState(false);
@@ -436,6 +654,7 @@ export default function CandidateChart({
                 viewForm,
                 structuredFormFields,
                 vsetts,
+                sessionInfo,
             });
 
             // Check if we have valid data
@@ -471,7 +690,7 @@ export default function CandidateChart({
                 "An unexpected error occurred. Please try again later."
             );
         }
-    }, [candidateData, auth, viewForm]);
+    }, [candidateData, auth, viewForm, sessionInfo]);
 
     // Function to load chart data from URLs in structuredFormFields
     const loadChartData = async () => {
@@ -485,7 +704,7 @@ export default function CandidateChart({
             console.log("Charts from vsetts:", vsetts.charts);
             console.log(
                 "Available structuredFormFields:",
-                Object.keys(structuredFormFields)
+                structuredFormFields
             );
 
             const chartTypes = vsetts.charts
@@ -494,10 +713,7 @@ export default function CandidateChart({
                 .map((type) => type.trim());
             const chartDataObj = {};
 
-            // For demo purposes, we're mocking the API calls
-            // In a real implementation, you would make actual API calls to the URLs
-            // specified in the structuredFormFields
-
+            // Process each chart type and fetch data
             for (const chartType of chartTypes) {
                 // Fix case sensitivity issue for day_bookings_by_Client_pie
                 const normalizedChartType =
@@ -545,42 +761,307 @@ export default function CandidateChart({
                     continue;
                 }
 
-                // In a real implementation, this is where you would make the API call
-                // For now, we'll use mock data
-                const mockData = generateMockChartData(
-                    config.type,
-                    config.columns.length
-                );
+                // Process the dataUrl to replace placeholders
+                let dataUrl = config.dataUrl;
+                if (dataUrl) {
+                    // Extract the chart type from the URL parameter for charts
+                    let chartTypeParam = normalizedChartType;
 
-                chartDataObj[normalizedChartType] = {
-                    config,
-                    data: mockData,
-                };
+                    // Try to extract the chart type from the URL if it's there
+                    const tyMatch = dataUrl.match(/ty=([^&]+)/);
+                    if (tyMatch && tyMatch[1]) {
+                        chartTypeParam = tyMatch[1];
+                    }
+
+                    // Use our new internal API endpoint
+                    const apiUrl = `/api/chart-data?type=${chartTypeParam}`;
+
+                    console.log(
+                        `Fetching data for ${normalizedChartType} from API: ${apiUrl}`
+                    );
+                    console.log(`Original dataUrl: ${dataUrl}`);
+                    console.log(`Extracted chart type: ${chartTypeParam}`);
+
+                    try {
+                        // Make the API call to our Laravel backend
+                        const response = await axios.get(apiUrl);
+                        console.log(
+                            `API response for ${normalizedChartType}:`,
+                            response
+                        );
+
+                        // Process the response data - could be in various formats
+                        let responseData;
+
+                        if (
+                            response.data &&
+                            typeof response.data === "string"
+                        ) {
+                            // If it's a string, use it directly
+                            responseData = response.data;
+                        } else if (
+                            response.data &&
+                            typeof response.data === "object"
+                        ) {
+                            // If it's an object, it could be { data: "string" } or other format
+                            if (
+                                response.data.data &&
+                                typeof response.data.data === "string"
+                            ) {
+                                responseData = response.data.data;
+                            } else if (
+                                response.data.result &&
+                                typeof response.data.result === "string"
+                            ) {
+                                responseData = response.data.result;
+                            } else {
+                                // Try to convert the object to a string in the expected format
+                                const formatted = formatObjectToChartData(
+                                    response.data,
+                                    config.type
+                                );
+                                if (formatted) {
+                                    responseData = formatted;
+                                } else {
+                                    // Last resort: stringify the object for inspection
+                                    console.warn(
+                                        "Unexpected response format:",
+                                        response.data
+                                    );
+                                    responseData = JSON.stringify(
+                                        response.data
+                                    );
+                                }
+                            }
+                        } else {
+                            // If we got something unexpected, log and provide empty data
+                            console.warn("Unknown response format:", response);
+                            responseData = "";
+                        }
+
+                        chartDataObj[normalizedChartType] = {
+                            config,
+                            data: responseData,
+                            loading: false,
+                            error: null,
+                        };
+                    } catch (error) {
+                        console.error(
+                            `Error fetching data for ${normalizedChartType}:`,
+                            error
+                        );
+                        chartDataObj[normalizedChartType] = {
+                            config,
+                            data: null,
+                            loading: false,
+                            error: `Failed to load data: ${
+                                error.message || "Unknown error"
+                            }`,
+                        };
+                    }
+                } else {
+                    console.warn(
+                        `No dataUrl for chart type: ${normalizedChartType}`
+                    );
+                    chartDataObj[normalizedChartType] = {
+                        config,
+                        data: null,
+                        loading: false,
+                        error: "No data URL provided",
+                    };
+                }
             }
 
-            console.log("Processed chart data:", Object.keys(chartDataObj));
+            console.log("Processed chart data:", chartDataObj);
             setChartData(chartDataObj);
             setIsLoading(false);
         } catch (error) {
             console.error("Error loading chart data:", error);
             setIsLoading(false);
+            setHasError(true);
+            setErrorMessage(
+                `Error loading dashboard data: ${
+                    error.message || "Unknown error"
+                }`
+            );
         }
     };
 
-    // Helper function to generate mock chart data for testing
-    const generateMockChartData = (type, columnCount) => {
-        // For a table with structure "Client|Last Week|This Week|Difference"
-        if (columnCount === 4) {
-            return "Client A~10~12~2;Client B~12~9~-3;Client C~19~12~-7;Client D~12~12~0;Client E~4~3~1;Client F~2~4~2;Total~24~30~6";
+    // Build charts based on structured form fields and vsetts
+    const renderCharts = () => {
+        if (!vsetts || !vsetts.charts) return null;
+
+        const chartTypes = vsetts.charts.split(";").filter(Boolean);
+        const allElements = [];
+
+        for (const chartType of chartTypes) {
+            const chartInfo = chartData[chartType];
+            if (!chartInfo) continue;
+
+            const { config, data, error } = chartInfo;
+            const { title, columns, type } = config;
+
+            // If there was an error loading the data, show error message
+            if (error) {
+                allElements.push(
+                    <ChartCard key={chartType} title={title} isLoading={false}>
+                        <div className="flex items-center justify-center h-full">
+                            <div className="text-red-500 text-center">
+                                <svg
+                                    className="w-12 h-12 mx-auto mb-2"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    />
+                                </svg>
+                                <p>{error}</p>
+                            </div>
+                        </div>
+                    </ChartCard>
+                );
+                continue;
+            }
+
+            // If no data, show empty state
+            if (!data) {
+                allElements.push(
+                    <ChartCard key={chartType} title={title} isLoading={false}>
+                        <div className="flex items-center justify-center h-full">
+                            <p className="text-gray-500">No data available</p>
+                        </div>
+                    </ChartCard>
+                );
+                continue;
+            }
+
+            // Parse data for visualization
+            if (type === "table") {
+                // Add tables to the same grid as charts
+                const tableData = convertToTableData(data);
+                allElements.push(
+                    <DataTable
+                        key={chartType}
+                        title={title}
+                        columns={columns}
+                        data={tableData}
+                    />
+                );
+            } else {
+                // Parse data for charts
+                const parsedData = parseChartData(data, columns);
+
+                // Render appropriate chart based on type
+                switch (type.toLowerCase()) {
+                    case "bar":
+                    case "column":
+                        allElements.push(
+                            <BarChartComponent
+                                key={chartType}
+                                title={title}
+                                labels={parsedData.labels}
+                                datasets={parsedData.datasets}
+                            />
+                        );
+                        break;
+                    case "line":
+                        allElements.push(
+                            <LineChartComponent
+                                key={chartType}
+                                title={title}
+                                labels={parsedData.labels}
+                                datasets={parsedData.datasets}
+                            />
+                        );
+                        break;
+                    case "pie":
+                        allElements.push(
+                            <PieChartComponent
+                                key={chartType}
+                                title={title}
+                                labels={parsedData.labels}
+                                datasets={parsedData.datasets}
+                            />
+                        );
+                        break;
+                    case "area":
+                        allElements.push(
+                            <AreaChartComponent
+                                key={chartType}
+                                title={title}
+                                labels={parsedData.labels}
+                                datasets={parsedData.datasets}
+                            />
+                        );
+                        break;
+                    case "gauge":
+                        allElements.push(
+                            <GaugeChartComponent
+                                key={chartType}
+                                title={title}
+                                labels={parsedData.labels}
+                                datasets={parsedData.datasets}
+                            />
+                        );
+                        break;
+                    case "stackedarea":
+                    case "stacked-area":
+                    case "stacked_area":
+                        allElements.push(
+                            <StackedAreaChartComponent
+                                key={chartType}
+                                title={title}
+                                labels={parsedData.labels}
+                                datasets={parsedData.datasets}
+                            />
+                        );
+                        break;
+                    case "timeline":
+                        allElements.push(
+                            <TimelineChartComponent
+                                key={chartType}
+                                title={title}
+                                labels={parsedData.labels}
+                                datasets={parsedData.datasets}
+                            />
+                        );
+                        break;
+                    default:
+                        // If chart type not recognized, use a bar chart as default
+                        console.warn(
+                            `Unknown chart type: ${type}, using bar chart as fallback`
+                        );
+                        allElements.push(
+                            <BarChartComponent
+                                key={chartType}
+                                title={title}
+                                labels={parsedData.labels}
+                                datasets={parsedData.datasets}
+                            />
+                        );
+                }
+            }
         }
 
-        // For a table with structure "Client|Total"
-        if (columnCount === 2) {
-            return "Client A~24;Client B~18;Client C~15;Client D~12;Client E~8;Client F~3;Total~80";
+        // Show message if no charts were rendered
+        if (allElements.length === 0) {
+            return (
+                <div className="p-8 text-center">
+                    <p className="text-gray-500">
+                        No charts or tables available to display
+                    </p>
+                </div>
+            );
         }
 
-        // Default
-        return "Item 1~10;Item 2~20;Item 3~15;Item 4~25;Item 5~18";
+        // Return all visualizations in a single grid
+        return <DashboardGrid columns={3}>{allElements}</DashboardGrid>;
     };
 
     if (!isClient) {
@@ -669,71 +1150,6 @@ export default function CandidateChart({
             </AuthenticatedLayout>
         );
     }
-
-    // Build charts based on structured form fields and vsetts
-    const renderCharts = () => {
-        if (!vsetts || !vsetts.charts) return null;
-
-        const chartTypes = vsetts.charts.split(";").filter(Boolean);
-        const allElements = [];
-
-        for (const chartType of chartTypes) {
-            const chartInfo = chartData[chartType];
-            if (!chartInfo) continue;
-
-            const { config, data } = chartInfo;
-            const { title, columns, type } = config;
-
-            if (type === "table") {
-                // Add tables to the same grid as charts
-                const tableData = convertToTableData(data);
-                allElements.push(
-                    <DataTable
-                        key={chartType}
-                        title={title}
-                        columns={columns}
-                        data={tableData}
-                    />
-                );
-            } else {
-                // Parse data for charts
-                const parsedData = parseChartData(data, columns);
-
-                // Render appropriate chart based on type
-                if (type === "bar" || type === "column") {
-                    allElements.push(
-                        <BarChartComponent
-                            key={chartType}
-                            title={title}
-                            labels={parsedData.labels}
-                            datasets={parsedData.datasets}
-                        />
-                    );
-                } else if (type === "line") {
-                    allElements.push(
-                        <LineChartComponent
-                            key={chartType}
-                            title={title}
-                            labels={parsedData.labels}
-                            datasets={parsedData.datasets}
-                        />
-                    );
-                } else if (type === "pie") {
-                    allElements.push(
-                        <PieChartComponent
-                            key={chartType}
-                            title={title}
-                            labels={parsedData.labels}
-                            datasets={parsedData.datasets}
-                        />
-                    );
-                }
-            }
-        }
-
-        // Return all visualizations in a single grid
-        return <DashboardGrid columns={3}>{allElements}</DashboardGrid>;
-    };
 
     // Render dashboard with charts and tables
     return (

@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TableSubmissionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UnderDevelopmentController;
+use App\Http\Controllers\DashboardDataController;
 use App\Http\Middleware\DevAuthMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Cookie;
@@ -69,8 +70,8 @@ Route::middleware(['external.auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/dashboard-data', [DashboardController::class, 'getDashboardData']);
 
-
-
+    // Add new route for chart data
+    Route::get('/api/chart-data', [DashboardDataController::class, 'getChartData'])->name('api.chart-data');
 
     // Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     // Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
