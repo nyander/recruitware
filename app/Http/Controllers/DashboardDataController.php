@@ -58,7 +58,7 @@ class DashboardDataController extends Controller
             }
 
             // Generate URL for the external API
-            $url = "{$baseUrl}/{$folder}/bookings.nsf/ag.dashdata";
+            $url = "{$baseUrl}/{$folder}/bookings.nsf/ag.getdashdata";
             $params = [
                 'openagent' => '',
                 'rnd' => $this->generateRandomString(10),
