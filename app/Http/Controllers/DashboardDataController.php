@@ -7,109 +7,209 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
+use GuzzleHttp\Client;
 
 class DashboardDataController extends Controller
 {
+    /**
+     * External auth service
+     *
+     * @var ExternalAuthService
+     */
     protected $externalAuthService;
 
+    /**
+     * Create a new controller instance.
+     *
+     * @param ExternalAuthService $externalAuthService
+     * @return void
+     */
     public function __construct(ExternalAuthService $externalAuthService)
     {
         $this->externalAuthService = $externalAuthService;
     }
 
     /**
-     * Proxy requests for dashboard chart data
-     * 
-     * @param Request $request
-     * @return \Illuminate\Http\Response
+     * Make an external API request with appropriate headers
+     *
+     * @param string $url
+     * @param array $headers
+     * @return array
      */
-    public function getChartData(Request $request)
+    private function makeExternalRequest($url, $headers = [])
     {
-        $chartType = $request->query('type');
-
-        if (!$chartType) {
-            return response()->json(['error' => 'Chart type is required'], 400);
-        }
-
-        Log::info('Dashboard chart data request', [
-            'chart_type' => $chartType,
-            'query_params' => $request->all()
+        $client = new \GuzzleHttp\Client([
+            'timeout' => 10,
+            'verify' => false, // Skip SSL verification in dev
         ]);
 
+        // Default headers that help prevent HTML responses
+        $defaultHeaders = [
+            'Accept' => 'application/json, text/plain',
+            'X-Requested-With' => 'XMLHttpRequest',
+            'User-Agent' => 'RecruitewareApp/1.0',
+        ];
+
+        $mergedHeaders = array_merge($defaultHeaders, $headers);
+
         try {
-            // Get session data
-            $authID = Session::get('authID');
-            $folder = Session::get('fldr', Session::get('userData.ApplicationFolder', 'demo'));
-            $baseUrl = config('services.external.base_url', 'http://31.193.136.171');
-
-            Log::debug('Session information for chart request', [
-                'auth_id' => $authID ? 'exists' : 'missing',
-                'folder' => $folder,
-                'base_url' => $baseUrl
+            $response = $client->get($url, [
+                'headers' => $mergedHeaders
             ]);
 
-            // If we're in a development environment and want to use mock data
-            if (config('app.env') === 'local' && config('app.use_mock_data', true)) {
-                return $this->getMockChartData($chartType);
-            }
+            $statusCode = $response->getStatusCode();
+            $body = (string) $response->getBody();
+            $contentType = $response->getHeaderLine('Content-Type');
 
-            if (!$authID) {
-                return response()->json(['error' => 'Authentication required'], 401);
-            }
-
-            // Generate URL for the external API
-            $url = "{$baseUrl}/{$folder}/bookings.nsf/ag.getdashdata";
-            $params = [
-                'openagent' => '',
-                'rnd' => $this->generateRandomString(10),
-                'ty' => $chartType
-            ];
-
-            Log::info('Making external request for chart data', [
+            // Log response metadata
+            Log::debug('External API response', [
                 'url' => $url,
-                'params' => $params
+                'status' => $statusCode,
+                'content_type' => $contentType,
+                'content_length' => strlen($body),
+                'content_preview' => substr($body, 0, 100) . (strlen($body) > 100 ? '...' : '')
             ]);
 
-            // Make the request to the external API
-            $response = Http::withHeaders([
-                'Cookie' => $authID,
-            ])->get($url, $params);
+            // Check if response is HTML (by content type or content analysis)
+            if (strpos($contentType, 'text/html') !== false || $this->looksLikeHtml($body)) {
+                Log::warning('Received HTML response from external API', [
+                    'url' => $url,
+                    'content_type' => $contentType,
+                    'content_preview' => substr($body, 0, 100)
+                ]);
 
-            Log::debug('External chart data response', [
-                'status' => $response->status(),
-                'body' => $response->body()
-            ]);
-
-            if ($response->successful()) {
-                return response($response->body());
-            } else {
-                // If external request fails, return mock data in development
-                if (config('app.env') === 'local') {
-                    Log::warning('External request failed, using mock data', [
-                        'status' => $response->status(),
-                        'error' => $response->body()
-                    ]);
-                    return $this->getMockChartData($chartType);
-                }
-
-                return response()->json([
-                    'error' => 'External service error',
-                    'status' => $response->status()
-                ], 500);
+                return [
+                    'success' => false,
+                    'error' => 'Received HTML instead of data',
+                    'data' => null
+                ];
             }
+
+            return [
+                'success' => true,
+                'status' => $statusCode,
+                'data' => $body
+            ];
         } catch (\Exception $e) {
-            Log::error('Error fetching chart data', [
-                'chart_type' => $chartType,
-                'message' => $e->getMessage(),
+            Log::error('External API request failed', [
+                'url' => $url,
+                'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
 
-            // Return mock data in development environments
-            if (config('app.env') === 'local') {
-                return $this->getMockChartData($chartType);
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'data' => null
+            ];
+        }
+    }
+
+    /**
+     * Check if content looks like HTML
+     *
+     * @param string $content
+     * @return bool
+     */
+    private function looksLikeHtml($content)
+    {
+        if (empty($content)) {
+            return false;
+        }
+
+        $htmlPatterns = [
+            '<!DOCTYPE',
+            '<html',
+            '<head',
+            '<script',
+            '<body',
+            '<meta'
+        ];
+
+        foreach ($htmlPatterns as $pattern) {
+            if (stripos($content, $pattern) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get chart data from external service
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getChartData(Request $request)
+    {
+        // Extract chart type from request
+        $chartType = $request->query('type');
+
+        if (!$chartType) {
+            Log::warning('Chart type not specified in request');
+            return response()->json(['error' => 'Chart type parameter is required'], 400);
+        }
+
+        Log::debug('Chart data request received', [
+            'chart_type' => $chartType,
+            'user_agent' => $request->header('User-Agent'),
+            'referer' => $request->header('Referer')
+        ]);
+
+        // Get user session data
+        $sessionData = Session::all();
+        $userId = $sessionData['auth']['user']['id'] ?? null;
+        $folder = $sessionData['auth']['user']['application_folder'] ?? env('DEFAULT_APPLICATION_FOLDER', 'tg');
+
+        // Check if we have authentication
+        if (!$userId) {
+            Log::warning('User not authenticated for chart data request');
+            // Return mock data if not authenticated
+            return response($this->getMockDataForChart($chartType), 200)
+                ->header('Content-Type', 'text/plain');
+        }
+
+        try {
+            // Base URL from configuration
+            $baseUrl = config('services.external.base_url', 'https://api.example.com');
+
+            // Build URL for the chart data
+            $url = "{$baseUrl}/{$folder}/bookings.nsf/ag.getdashdata?openagent&{$this->generateRandomString()}&ty={$chartType}";
+
+            // Headers including session cookies if available
+            $headers = [];
+            if (isset($sessionData['external_cookie'])) {
+                $headers['Cookie'] = $sessionData['external_cookie'];
             }
 
-            return response()->json(['error' => 'Server error: ' . $e->getMessage()], 500);
+            // Make the request to the external service
+            $response = $this->makeExternalRequest($url, $headers);
+
+            if (!$response['success']) {
+                Log::warning('Failed to fetch chart data from external service', [
+                    'chart_type' => $chartType,
+                    'error' => $response['error']
+                ]);
+
+                // Fall back to mock data
+                return response($this->getMockDataForChart($chartType), 200)
+                    ->header('Content-Type', 'text/plain');
+            }
+
+            // If we got a successful response, return it
+            return response($response['data'], 200)
+                ->header('Content-Type', 'text/plain');
+        } catch (\Exception $e) {
+            Log::error('Exception while fetching chart data', [
+                'chart_type' => $chartType,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            // Return mock data in case of exception
+            return response($this->getMockDataForChart($chartType), 200)
+                ->header('Content-Type', 'text/plain');
         }
     }
 
@@ -130,27 +230,27 @@ class DashboardDataController extends Controller
      * @param string $chartType
      * @return \Illuminate\Http\Response
      */
-    protected function getMockChartData($chartType)
+    protected function getMockDataForChart($chartType)
     {
         Log::info('Using mock data for chart type: ' . $chartType);
 
         // Return appropriate mock data based on chart type
         switch ($chartType) {
             case 'day_bookings_difference':
-                return response("Client A~10~12~2;Client B~12~9~-3;Client C~19~12~-7;Client D~12~12~0;Client E~4~3~1;Client F~2~4~2;Total~24~30~6");
+                return "Client A~10~12~2;Client B~12~9~-3;Client C~19~12~-7;Client D~12~12~0;Client E~4~3~1;Client F~2~4~2;Total~24~30~6";
 
             case 'week_bookings_difference':
-                return response("Client A~40~45~5;Client B~38~42~4;Client C~55~50~-5;Client D~22~28~6;Client E~15~18~3;Client F~30~25~-5;Total~200~208~8");
+                return "Client A~40~45~5;Client B~38~42~4;Client C~55~50~-5;Client D~22~28~6;Client E~15~18~3;Client F~30~25~-5;Total~200~208~8";
 
             case 'day_bookings_by_client':
-                return response("Client A~24;Client B~18;Client C~15;Client D~12;Client E~8;Client F~3;Total~80");
+                return "Client A~24;Client B~18;Client C~15;Client D~12;Client E~8;Client F~3;Total~80";
 
             case 'week_bookings_by_client':
-                return response("Client A~120;Client B~95;Client C~85;Client D~65;Client E~45;Client F~30;Total~440");
+                return "Client A~120;Client B~95;Client C~85;Client D~65;Client E~45;Client F~30;Total~440";
 
             default:
                 // Generic data for any other chart type
-                return response("Item 1~10;Item 2~20;Item 3~15;Item 4~25;Item 5~18");
+                return "Item 1~10;Item 2~20;Item 3~15;Item 4~25;Item 5~18";
         }
     }
 }

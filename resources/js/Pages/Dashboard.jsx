@@ -17,6 +17,7 @@ import {
 } from "chart.js";
 import { Users, CalendarPlus, CheckCircle } from "lucide-react";
 import { Bar, Line } from "react-chartjs-2";
+import { ErrorBoundary } from "react-error-boundary";
 
 ChartJS.register(
     CategoryScale,
@@ -39,13 +40,26 @@ export default function Dashboard({ auth, menu }) {
             try {
                 setLoading(true);
                 setError(null);
-                const response = await axios.get("/api/dashboard-data");
+                console.log("Fetching dashboard data from API...");
+
+                // Use absolute URL to ensure consistent path in all environments
+                const apiUrl = window.location.origin + "/api/dashboard-data";
+                console.log("API URL:", apiUrl);
+
+                const response = await axios.get(apiUrl);
+                console.log("Dashboard data received:", response.data);
                 setDashboardData(response.data);
             } catch (error) {
                 console.error("Error fetching dashboard data:", error);
+                console.error("Error details:", {
+                    message: error.message,
+                    status: error.response?.status,
+                    data: error.response?.data,
+                    config: error.config,
+                });
                 setError(
                     error.response?.data?.message ||
-                        "Failed to load dashboard data"
+                        "Failed to load dashboard data: " + error.message
                 );
             } finally {
                 setLoading(false);
@@ -57,6 +71,27 @@ export default function Dashboard({ auth, menu }) {
 
     const renderCharts = () => {
         if (!dashboardData) return null;
+
+        // Add safety check for required data
+        if (
+            !dashboardData.bookingsPerDay ||
+            !dashboardData.lastMonthDates ||
+            !dashboardData.lastMonthBookings
+        ) {
+            console.error("Missing chart data:", {
+                bookingsPerDay: dashboardData.bookingsPerDay,
+                lastMonthDates: dashboardData.lastMonthDates,
+                lastMonthBookings: dashboardData.lastMonthBookings,
+            });
+            return (
+                <div className="bg-yellow-50 p-4 rounded-lg mb-4">
+                    <p className="text-yellow-600">
+                        Chart data is missing or incomplete. Please try
+                        refreshing.
+                    </p>
+                </div>
+            );
+        }
 
         const barData = {
             labels: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
@@ -83,6 +118,7 @@ export default function Dashboard({ auth, menu }) {
             ],
         };
 
+        // Render charts with error handling
         return (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <div
@@ -92,7 +128,26 @@ export default function Dashboard({ auth, menu }) {
                     <h3 className="text-lg font-semibold mb-4">
                         Daily Bookings
                     </h3>
-                    <Bar data={barData} />
+                    <div
+                        className="chart-container"
+                        style={{ position: "relative", height: "300px" }}
+                    >
+                        <ErrorBoundary
+                            fallback={
+                                <p className="text-red-500">
+                                    Failed to render chart
+                                </p>
+                            }
+                        >
+                            <Bar
+                                data={barData}
+                                options={{
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                }}
+                            />
+                        </ErrorBoundary>
+                    </div>
                 </div>
                 <div
                     className="bg-white border-[3px] border-solid rounded-lg shadow-sm p-4"
@@ -101,7 +156,26 @@ export default function Dashboard({ auth, menu }) {
                     <h3 className="text-lg font-semibold mb-4">
                         Monthly Trend
                     </h3>
-                    <Line data={lineData} />
+                    <div
+                        className="chart-container"
+                        style={{ position: "relative", height: "300px" }}
+                    >
+                        <ErrorBoundary
+                            fallback={
+                                <p className="text-red-500">
+                                    Failed to render chart
+                                </p>
+                            }
+                        >
+                            <Line
+                                data={lineData}
+                                options={{
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                }}
+                            />
+                        </ErrorBoundary>
+                    </div>
                 </div>
             </div>
         );

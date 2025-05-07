@@ -68,7 +68,15 @@ Route::get('/upload-callback', function () {
 
 Route::middleware(['external.auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/api/dashboard-data', [DashboardController::class, 'getDashboardData']);
+
+    // Add CORS headers to dashboard data endpoint
+    Route::get('/api/dashboard-data', function () {
+        $controller = app()->make(DashboardController::class);
+        $response = $controller->getDashboardData();
+        return $response->header('Access-Control-Allow-Origin', '*')
+            ->header('Access-Control-Allow-Methods', 'GET')
+            ->header('Access-Control-Allow-Headers', 'Content-Type');
+    });
 
     // Add new route for chart data
     Route::get('/api/chart-data', [DashboardDataController::class, 'getChartData'])->name('api.chart-data');
